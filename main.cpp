@@ -26,18 +26,19 @@ voxels as a 3D array of booleans (e.g. use blocking or an octree).
 
 For the inside fill to work properly, the mesh has to be perfectly
 watertight, with exactly matching vertices between neighboring 
-verticies.
+vertices.
 
 */
+
+#include "path.h"
 
 #include <LibSL/LibSL.h>
 
 #include <iostream>
 #include <algorithm>
 #include <queue>
-using namespace std;
+#include <fstream>
 
-#include "path.h"
 
 // --------------------------------------------------------------
 
@@ -71,13 +72,12 @@ void saveAsVox(const char *fname, const Array3D<uchar>& voxs)
   palette[125] = v3b(0, 255, 0);
   palette[126] = v3b(0, 0, 255);
   palette[127] = v3b(255, 255, 255);
-  FILE *f;
-  f = fopen(fname, "wb");
-  sl_assert(f != NULL);
+  std::ofstream f(fname, std::ios::binary);
+  sl_assert(f.is_open())
   long sx = voxs.xsize(), sy = voxs.ysize(), sz = voxs.zsize();
-  fwrite(&sx, 4, 1, f);
-  fwrite(&sy, 4, 1, f);
-  fwrite(&sz, 4, 1, f);
+  f.write(reinterpret_cast<char*>(&sx), 4 * 1);
+  f.write(reinterpret_cast<char*>(&sy), 4 * 1);
+  f.write(reinterpret_cast<char*>(&sz), 4 * 1);
   ForRangeReverse(i, sx - 1, 0) {
     ForIndex(j, sy) {
       ForRangeReverse(k, sz - 1, 0) {
@@ -86,12 +86,11 @@ void saveAsVox(const char *fname, const Array3D<uchar>& voxs)
         if (v == INSIDE) {
           pal = 123;
         }
-        fwrite(&pal, sizeof(uchar), 1, f);
+        f.write(reinterpret_cast<char*>(&pal), sizeof(uchar) * 1);
       }
     }
   }
-  fwrite(palette.raw(), sizeof(v3b), 256, f);
-  fclose(f);
+  f.write(reinterpret_cast<char*>(palette.raw()), sizeof(v3b) * 256);
 }
 
 // --------------------------------------------------------------
@@ -310,7 +309,7 @@ int main(int argc, char **argv)
     }
 
     // rasterize into voxels
-    v3u resolution(mesh->bbox().extent() / tupleMax(mesh->bbox().extent()) * float(VOXEL_RESOLUTION));
+    v3u resolution(mesh->bbox().extent() / tupleMax(mesh->bbox().extent()) * static_cast<float>(VOXEL_RESOLUTION));
     Array3D<uchar> voxs(resolution);
     voxs.fill(0);
     {
@@ -323,20 +322,20 @@ int main(int argc, char **argv)
         rasterize<swizzle_zxy>(tris[t], pts, voxs); // zx view
       }
       Console::progressTextEnd();
-      cerr << endl;
+      std::cerr << std::endl;
     }
 
     // add inner voxels
 #if VOXEL_FILL_INSIDE
     {
       Timer tm("fill");
-      cerr << "filling in/out ... ";
+      std::cerr << "filling in/out ... ";
 #if VOXEL_ROBUST_FILL
       fillInsideVoting(voxs);
 #else
-      fillInside(voxs);
+      fillInside(voxs); // winding order; determines if a voxel is solid or empty (detects holes inside stl)
 #endif
-      cerr << " done." << endl;
+      std::cerr << " done." << std::endl;
     }
 #endif
 
@@ -350,10 +349,10 @@ int main(int argc, char **argv)
         num_in_vox++;
       }
     }
-    cerr << "number of set voxels: " << num_in_vox << endl;
+    std::cerr << "number of set voxels: " << num_in_vox << std::endl;
 
   } catch (Fatal& e) {
-    cerr << "[ERROR] " << e.message() << endl;
+    std::cerr << "[ERROR] " << e.message() << std::endl;
   }
 
 }
