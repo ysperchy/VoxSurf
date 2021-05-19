@@ -59,6 +59,11 @@ vertices.
 #define INSIDE_X 16
 #define INSIDE_Y 32
 #define INSIDE_Z 64
+#define OVERHANG 128
+
+#define OVERHANG_ANGLE 45
+#define GRAVITY_VECTOR v3f(0,0,1)
+#define BED_LEVEL 2
 
 // --------------------------------------------------------------
 
@@ -85,6 +90,9 @@ void saveAsVox(const char *fname, const Array3D<uchar>& voxs)
         uchar pal = v != 0 ? 127 : 255;
         if (v == INSIDE) {
           pal = 123;
+        }
+        if (v & OVERHANG) {
+          pal = 124;
         }
         f.write(reinterpret_cast<char*>(&pal), sizeof(uchar) * 1);
       }
@@ -167,6 +175,15 @@ void rasterize(
   if (delta21 == v2i(0)) return;
   if (delta02 == v2i(0)) return;
   if (delta02[0] * delta10[1] - delta02[1] * delta10[0] == 0) return;
+  // check if triangle is overhanging
+  v3f v10 = v3f(pts[tri[1]] - pts[tri[0]]);
+  v3f v20 = v3f(pts[tri[2]] - pts[tri[0]]);
+  v3f nrml = cross(v20, v10);
+  nrml = normalize_safe(nrml);
+  float cosAngle = dot(nrml, GRAVITY_VECTOR);
+  float angleRad = std::acosf(cosAngle); // return value on interval [0 - pi]
+  float angleDeg = angleRad * 180.0f / static_cast<float>(M_PI);
+  bool overhang = angleDeg < static_cast<float>(OVERHANG_ANGLE);
   // proceed
   AAB<2, int> pixbx;
   pixbx.addPoint(v2i(tripts[0]) / FP_SCALE);
@@ -184,6 +201,10 @@ void rasterize(
         // NOTE: voxels are likely to be hit multiple times (e.g. thin features)
         //       we flip the bit every time a hit occurs in a voxel
         _voxs.at(vx[0], vx[1], vx[2]) = ( _voxs.at(vx[0], vx[1], vx[2]) ^ swizzler.along() );
+        // overhang mark
+        if (overhang && vx[2] > BED_LEVEL) {
+          _voxs.at(vx[0], vx[1], vx[2]) |= OVERHANG;
+        }
       }
     }
   }
@@ -280,7 +301,7 @@ int main(int argc, char **argv)
   try {
 
     // load triangle mesh
-    TriangleMesh_Ptr mesh(loadTriangleMesh(SRC_PATH "/model.stl"));
+    TriangleMesh_Ptr mesh(loadTriangleMesh(SRC_PATH "/fox.stl"));
     // produce (fixed fp) integer vertices and triangles
     std::vector<v3i> pts;
     std::vector<v3u> tris;
