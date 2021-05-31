@@ -64,6 +64,10 @@ vertices.
 #define OVERHANG_ANGLE 45
 #define GRAVITY_VECTOR v3f(0,0,1)
 #define BED_LEVEL 2
+#define FILTER_PARITY 1
+#define PARITY_RULE 0 // 0: even, 1: odd
+#define FILTER_SPHERE 1
+#define SPHERE_RADIUS 5.0f
 
 // --------------------------------------------------------------
 
@@ -295,13 +299,53 @@ void fillInside(Array3D<uchar>& _voxs)
 
 // --------------------------------------------------------------
 
+void parityFilter(Array3D<uchar>& _voxs)
+{
+  ForIndex(k, _voxs.zsize()) {
+    ForIndex(j, _voxs.ysize()) {
+      ForIndex(i, _voxs.xsize()) {
+        if (!(i % 2 == PARITY_RULE && j % 2 == PARITY_RULE)) {
+          _voxs.at(i, j, k) &= ~OVERHANG;
+        }
+      }
+    }
+  }
+}
+
+// --------------------------------------------------------------
+
+void sphereFilter(Array3D<uchar>& _voxs)
+{
+  const int r = static_cast<int>(std::ceilf(SPHERE_RADIUS));
+  ForIndex(k, _voxs.zsize()) {
+    ForIndex(j, _voxs.ysize()) {
+      ForIndex(i, _voxs.xsize()) {
+        if (_voxs.at(i, j, k) & OVERHANG) { // sphere center
+          ForRange(c, std::max(0, k - r), std::min(k + r, static_cast<int>(_voxs.zsize()) - 1)) {
+            ForRange(b, std::max(0, j - r), std::min(j + r, static_cast<int>(_voxs.ysize()) - 1)) {
+              ForRange(a, std::max(0, i - r), std::min(i + r, static_cast<int>(_voxs.xsize()) - 1)) {
+                if (static_cast<float>(sqLength(v3i(i-a,j-b,k-c))) < SPHERE_RADIUS * SPHERE_RADIUS) { // inside radius
+                  _voxs.at(a, b, c) &= ~OVERHANG;
+                }
+              }
+            }
+          }
+          _voxs.at(i, j, k) |= OVERHANG;
+        }
+      }
+    }
+  }
+}
+
+// --------------------------------------------------------------
+
 int main(int argc, char **argv)
 {
 
   try {
 
     // load triangle mesh
-    TriangleMesh_Ptr mesh(loadTriangleMesh(SRC_PATH "/fox.stl"));
+    TriangleMesh_Ptr mesh(loadTriangleMesh(SRC_PATH "/model.stl"));
     // produce (fixed fp) integer vertices and triangles
     std::vector<v3i> pts;
     std::vector<v3u> tris;
@@ -344,6 +388,19 @@ int main(int argc, char **argv)
       }
       Console::progressTextEnd();
       std::cerr << std::endl;
+    }
+
+    {
+      Timer tm("filtering");
+      std::cerr << "filtering parity/sphere ... ";
+#if FILTER_PARITY
+      parityFilter(voxs);
+#endif
+
+#if FILTER_SPHERE
+      sphereFilter(voxs);
+#endif
+      std::cerr << " done." << std::endl;
     }
 
     // add inner voxels
