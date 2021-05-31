@@ -65,9 +65,9 @@ vertices.
 #define GRAVITY_VECTOR v3f(0,0,1)
 #define BED_LEVEL 2
 #define FILTER_PARITY 1
-#define PARITY_RULE 0 // 0: even, 1: odd
+#define PARITY_RULE 1 // 0: odd, 1: even
 #define FILTER_SPHERE 1
-#define SPHERE_RADIUS 5.0f
+#define SPHERE_RADIUS 3.0f
 
 // --------------------------------------------------------------
 
