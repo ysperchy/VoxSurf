@@ -68,6 +68,8 @@ vertices.
 #define PARITY_RULE 1 // 0: odd, 1: even
 #define FILTER_SPHERE 1
 #define SPHERE_RADIUS 3.0f
+#define FILTER_COLLISION 1
+#define COLLISION_RETRACT 0
 
 // --------------------------------------------------------------
 
@@ -299,6 +301,121 @@ void fillInside(Array3D<uchar>& _voxs)
 
 // --------------------------------------------------------------
 
+Array2D<uint> orthogonalProjection(Array3D<uchar>& _voxs, v3i axis)
+{
+  int sign = axis[0] + axis[1] + axis[2];
+  Array2D<uint> proj;
+  if (abs(axis) == v3i(0, 0, 1)) {
+    proj.allocate(_voxs.xsize(), _voxs.ysize());
+    proj.fill(sign > 0 ? _voxs.zsize() - 1 : 0);
+    ForIndex(i, _voxs.xsize()) {
+      ForIndex(j, _voxs.ysize()) {
+        if (sign == 1) {
+          ForIndex(k, _voxs.zsize()) {
+            if (_voxs.at(i, j, k) & ALONG_Z) {
+              proj.at(i, j) = k;
+              break;
+            }
+          }
+        } else if (sign == -1) {
+          ForRangeReverse(k, _voxs.zsize() - 1, 0) {
+            if (_voxs.at(i, j, k) & ALONG_Z) {
+              proj.at(i, j) = k;
+              break;
+            }
+          }
+        } else {
+          sl_assert(false);
+        }
+      }
+    }
+  } else if (abs(axis) == v3i(0, 1, 0)) {
+    proj.allocate(_voxs.xsize(), _voxs.zsize());
+    proj.fill(sign > 0 ? _voxs.ysize() - 1 : 0);
+    ForIndex(i, _voxs.xsize()) {
+      ForIndex(k, _voxs.zsize()) {
+        if (sign == 1) {
+          ForIndex(j, _voxs.ysize()) {
+            if (_voxs.at(i, j, k) & ALONG_Y) {
+              proj.at(i, k) = j;
+              break;
+            }
+          }
+        } else if (sign == -1) {
+          ForRangeReverse(j, _voxs.ysize() - 1, 0) {
+            if (_voxs.at(i, j, k) & ALONG_Y) {
+              proj.at(i, k) = j;
+              break;
+            }
+          }
+        } else {
+          sl_assert(false);
+        }
+      }
+    }
+  } else if (abs(axis) == v3i(1, 0, 0)) {
+    proj.allocate(_voxs.ysize(), _voxs.zsize());
+    proj.fill(sign > 0 ? _voxs.xsize() - 1 : 0);
+    ForIndex(j, _voxs.ysize()) {
+      ForIndex(k, _voxs.zsize()) {
+        if (sign == 1) {
+          ForIndex(i, _voxs.xsize()) {
+            if (_voxs.at(i, j, k) & ALONG_X) {
+              proj.at(j, k) = i;
+              break;
+            }
+          }
+        } else if (sign == -1) {
+          ForRangeReverse(i, _voxs.xsize() - 1, 0) {
+            if (_voxs.at(i, j, k) & ALONG_X) {
+              proj.at(j, k) = i;
+              break;
+            }
+          }
+        } else {
+          sl_assert(false);
+        }
+      }
+    }
+  } else {
+    sl_assert(false);
+  }
+  return proj;
+}
+
+// --------------------------------------------------------------
+
+void collisionFilter(Array3D<uchar>& _voxs)
+{
+  Array2D<uint> projPosX = orthogonalProjection(_voxs, v3i( 1,  0,  0));
+  Array2D<uint> projNegX = orthogonalProjection(_voxs, v3i(-1,  0,  0));
+  Array2D<uint> projPosY = orthogonalProjection(_voxs, v3i( 0,  1,  0));
+  Array2D<uint> projNegY = orthogonalProjection(_voxs, v3i( 0, -1,  0));
+  Array2D<uint> projZ    = orthogonalProjection(_voxs, v3i( 0,  0,  1));
+  
+  ForIndex(k, _voxs.zsize()) {
+    ForIndex(j, _voxs.ysize()) {
+      ForIndex(i, _voxs.xsize()) {
+        if (_voxs.at(i, j, k) & OVERHANG) {
+          if (projZ.at(i, j) < static_cast<uint>(k)) { // collides with shape
+            ForRangeReverse(c, k - 1, 0) { // all the way down to the bed
+              _voxs.at(i, j, c) |= OVERHANG; // move this after the if below if anchors can connect to bridges (bars)
+              if (projPosX.at(j, c) > static_cast<uint>(i) || projNegX.at(j, c) < static_cast<uint>(i) || projPosY.at(i, c) > static_cast<uint>(j) || projNegY.at(i, c) < static_cast<uint>(j)) { // visible
+                for(int z = c; z < c + COLLISION_RETRACT && z < k && z < static_cast<int>(_voxs.zsize()); z++) {
+                  _voxs.at(i, j, z) &= ~OVERHANG; // unmark retract length
+                }
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// --------------------------------------------------------------
+
 void parityFilter(Array3D<uchar>& _voxs)
 {
   ForIndex(k, _voxs.zsize()) {
@@ -392,13 +509,17 @@ int main(int argc, char **argv)
 
     {
       Timer tm("filtering");
-      std::cerr << "filtering parity/sphere ... ";
+      std::cerr << "filtering parity/sphere/collision ... ";
 #if FILTER_PARITY
       parityFilter(voxs);
 #endif
 
 #if FILTER_SPHERE
       sphereFilter(voxs);
+#endif
+
+#if FILTER_COLLISION
+      collisionFilter(voxs);
 #endif
       std::cerr << " done." << std::endl;
     }
