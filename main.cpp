@@ -341,84 +341,59 @@ void sphereFilter(Array3D<uchar>& _voxs)
 
 // --------------------------------------------------------------
 
-Array2D<uint> orthogonalProjection(Array3D<uchar>& _voxs, v3i axis)
+template <bool sign> // true: positive, false: negative
+class ProjX
 {
-  int sign = axis[0] + axis[1] + axis[2];
+public:
+  inline v2u  projSize (const Array3D<uchar>& voxs) const { return v2u(voxs.ysize(), voxs.zsize());               }
+  inline v3u  projLoop (const Array3D<uchar>& voxs) const { return v3u(voxs.ysize(), voxs.zsize(), voxs.xsize()); }
+  inline v3u  projCoord(const v3u coord)            const { return v3u(coord[2], coord[0], coord[1]);             }
+  inline uint initValue(const Array3D<uchar>& voxs) const { return (sign ? voxs.xsize() - 1 : 0);                 }
+  inline bool getSign  ()                           const { return sign;                                          }
+};
+
+template <bool sign> // true: positive, false: negative
+class ProjY
+{
+public:
+  inline v2u  projSize (const Array3D<uchar>& voxs) const { return v2u(voxs.xsize(), voxs.zsize());               }
+  inline v3u  projLoop (const Array3D<uchar>& voxs) const { return v3u(voxs.xsize(), voxs.zsize(), voxs.ysize()); }
+  inline v3u  projCoord(const v3u coord           ) const { return v3u(coord[0], coord[2], coord[1]);             }
+  inline uint initValue(const Array3D<uchar>& voxs) const { return (sign ? voxs.ysize() - 1 : 0);                 }
+  inline bool getSign  ()                           const { return sign;                                          }
+};
+
+template <bool sign> // true: positive, false: negative
+class ProjZ
+{
+public:
+  inline v2u  projSize (const Array3D<uchar>& voxs) const { return v2u(voxs.xsize(), voxs.ysize());               }
+  inline v3u  projLoop (const Array3D<uchar>& voxs) const { return v3u(voxs.xsize(), voxs.ysize(), voxs.zsize()); }
+  inline v3u  projCoord(const v3u coord)            const { return v3u(coord[0], coord[1], coord[2]);             }
+  inline uint initValue(const Array3D<uchar>& voxs) const { return (sign ? voxs.zsize() - 1 : 0);                 }
+  inline bool getSign  ()                           const { return sign;                                          }
+};
+
+template<class P>
+Array2D<uint> orthogonalProjection(const Array3D<uchar>& voxs, const v3i axis)
+{
+  const P projAxis;
   Array2D<uint> proj;
-  if (abs(axis) == v3i(0, 0, 1)) {
-    proj.allocate(_voxs.xsize(), _voxs.ysize());
-    proj.fill(sign > 0 ? _voxs.zsize() - 1 : 0);
-    ForIndex(i, _voxs.xsize()) {
-      ForIndex(j, _voxs.ysize()) {
-        if (sign == 1) {
-          ForIndex(k, _voxs.zsize()) {
-            if (_voxs.at(i, j, k) & (ALONG_X | ALONG_Y | ALONG_Z)) {
-              proj.at(i, j) = k;
-              break;
-            }
-          }
-        } else if (sign == -1) {
-          ForRangeReverse(k, _voxs.zsize() - 1, 0) {
-            if (_voxs.at(i, j, k) & (ALONG_X | ALONG_Y | ALONG_Z)) {
-              proj.at(i, j) = k;
-              break;
-            }
-          }
-        } else {
-          sl_assert(false);
+  v2u projSize = projAxis.projSize(voxs);
+  proj.allocate(projSize[0], projSize[1]);
+  proj.fill(projAxis.initValue(voxs));
+  v3u loopSize = projAxis.projLoop(voxs);
+  ForIndex(a, loopSize[0]) {
+    ForIndex(b, loopSize[1]) {
+      bool sign = projAxis.getSign();
+      for (int c = (sign ? 0 : static_cast<int>(loopSize[2] - 1)); (sign ? c < static_cast<int>(loopSize[2]) : c >= 0); (sign ? c++ : c--)) {
+        v3u coord = projAxis.projCoord(v3u(a, b, c));
+        if (voxs.at(coord[0], coord[1], coord[2]) & (ALONG_X | ALONG_Y | ALONG_Z)) {
+          proj.at(a, b) = c;
+          break;
         }
       }
     }
-  } else if (abs(axis) == v3i(0, 1, 0)) {
-    proj.allocate(_voxs.xsize(), _voxs.zsize());
-    proj.fill(sign > 0 ? _voxs.ysize() - 1 : 0);
-    ForIndex(i, _voxs.xsize()) {
-      ForIndex(k, _voxs.zsize()) {
-        if (sign == 1) {
-          ForIndex(j, _voxs.ysize()) {
-            if (_voxs.at(i, j, k) & (ALONG_X | ALONG_Y | ALONG_Z)) {
-              proj.at(i, k) = j;
-              break;
-            }
-          }
-        } else if (sign == -1) {
-          ForRangeReverse(j, _voxs.ysize() - 1, 0) {
-            if (_voxs.at(i, j, k) & (ALONG_X | ALONG_Y | ALONG_Z)) {
-              proj.at(i, k) = j;
-              break;
-            }
-          }
-        } else {
-          sl_assert(false);
-        }
-      }
-    }
-  } else if (abs(axis) == v3i(1, 0, 0)) {
-    proj.allocate(_voxs.ysize(), _voxs.zsize());
-    proj.fill(sign > 0 ? _voxs.xsize() - 1 : 0);
-    ForIndex(j, _voxs.ysize()) {
-      ForIndex(k, _voxs.zsize()) {
-        if (sign == 1) {
-          ForIndex(i, _voxs.xsize()) {
-            if (_voxs.at(i, j, k) & (ALONG_X | ALONG_Y | ALONG_Z)) {
-              proj.at(j, k) = i;
-              break;
-            }
-          }
-        } else if (sign == -1) {
-          ForRangeReverse(i, _voxs.xsize() - 1, 0) {
-            if (_voxs.at(i, j, k) & (ALONG_X | ALONG_Y | ALONG_Z)) {
-              proj.at(j, k) = i;
-              break;
-            }
-          }
-        } else {
-          sl_assert(false);
-        }
-      }
-    }
-  } else {
-    sl_assert(false);
   }
   return proj;
 }
@@ -427,20 +402,23 @@ Array2D<uint> orthogonalProjection(Array3D<uchar>& _voxs, v3i axis)
 
 void collisionFilter(Array3D<uchar>& _voxs)
 {
-  Array2D<uint> projX = orthogonalProjection(_voxs, v3i(1, 0, 0));
-  Array2D<uint> projY = orthogonalProjection(_voxs, v3i(0, 1, 0));
-  Array2D<uint> projZ = orthogonalProjection(_voxs, v3i(0, 0, 1));
+  Array2D<uint> projX = orthogonalProjection<ProjX<true>>(_voxs, v3i(1, 0, 0));
+  Array2D<uint> projY = orthogonalProjection<ProjY<true>>(_voxs, v3i(0, 1, 0));
+  Array2D<uint> projZ = orthogonalProjection<ProjZ<true>>(_voxs, v3i(0, 0, 1));
 
   ForIndex(k, _voxs.zsize()) {
     ForIndex(j, _voxs.ysize()) {
       ForIndex(i, _voxs.xsize()) {
         if (_voxs.at(i, j, k) & OVERHANG) {
           if (projZ.at(i, j) < static_cast<uint>(k)) { // collides with shape
-            ForRangeReverse(c, k - 1, 0) { // all the way down to the bed
-              _voxs.at(i, j, c) |= OVERHANG; // move this after the if below if anchors can connect to bridges (bars)
-              if (projX.at(j, c) == static_cast<uint>(_voxs.xsize() - 1) || projY.at(i, c) == static_cast<uint>(_voxs.ysize() - 1)) { // visible
+            ForRangeReverse(c, k - 1, 0) {             // all the way down to the bed or...
+              if (_voxs.at(i, j, c) & (ALONG_X | ALONG_Y | ALONG_Z)) { // ...stop when coliding with shape
+                break;
+              }
+              _voxs.at(i, j, c) |= OVERHANG;           // move this after the if below if anchors can connect to bridges (bars)
+              if (projX.at(j, c) == static_cast<uint>(_voxs.xsize() - 1) || projY.at(i, c) == static_cast<uint>(_voxs.ysize() - 1)) { // visible from X+- or Y+-
                 for (int z = c; z < c + COLLISION_RETRACT && z < k && z < static_cast<int>(_voxs.zsize()); z++) {
-                  _voxs.at(i, j, z) &= ~OVERHANG; // unmark retract length
+                  _voxs.at(i, j, z) &= ~OVERHANG;      // unmark retract length
                 }
                 break;
               }
