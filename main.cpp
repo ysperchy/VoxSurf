@@ -60,6 +60,7 @@ vertices.
 #define INSIDE_Y 32
 #define INSIDE_Z 64
 #define OVERHANG 128
+#define PILLAR   256
 
 #define OVERHANG_ANGLE 45
 #define GRAVITY_VECTOR v3f(0,0,1)
@@ -74,7 +75,7 @@ vertices.
 // --------------------------------------------------------------
 
 // saves a voxel file (.slab.vox format, can be imported by MagicaVoxel)
-void saveAsVox(const char *fname, const Array3D<uchar>& voxs)
+void saveAsVox(const char *fname, const Array3D<uint>& voxs)
 {
   Array<v3b> palette(256); // RGB palette
   palette.fill(0);
@@ -90,13 +91,16 @@ void saveAsVox(const char *fname, const Array3D<uchar>& voxs)
   ForRangeReverse(i, sx - 1, 0) {
     ForIndex(j, sy) {
       ForRangeReverse(k, sz - 1, 0) {
-        uchar v   = voxs.at(i, j, k);
+        uint v    = voxs.at(i, j, k);
         uchar pal = v != 0 ? 253 : 255;
         if (v == INSIDE) {
           pal = 253;
         }
         if (v & OVERHANG) {
           pal = 252;
+        }
+        if (v & PILLAR) {
+          pal = 0;
         }
         f.write(reinterpret_cast<char*>(&pal), sizeof(uchar) * 1);
       }
@@ -136,25 +140,25 @@ inline bool isInTriangle(int i, int j, const v3i& p0, const v3i& p1, const v3i& 
 class swizzle_xyz
 {
 public:
-  inline v3i forward(const v3i& v)  const { return v; }
-  inline v3i backward(const v3i& v) const { return v; }
-  inline int along() const { return ALONG_Z; }
+  inline v3i  forward(const v3i& v)  const { return v; }
+  inline v3i  backward(const v3i& v) const { return v; }
+  inline uint along() const { return ALONG_Z; }
 };
 
 class swizzle_zxy
 {
 public:
-  inline v3i   forward(const v3i& v)  const { return v3i(v[2], v[0], v[1]); }
-  inline v3i   backward(const v3i& v) const { return v3i(v[1], v[2], v[0]); }
-  inline uchar along() const { return ALONG_Y; }
+  inline v3i  forward(const v3i& v)  const { return v3i(v[2], v[0], v[1]); }
+  inline v3i  backward(const v3i& v) const { return v3i(v[1], v[2], v[0]); }
+  inline uint along() const { return ALONG_Y; }
 };
 
 class swizzle_yzx
 {
 public:
-  inline v3i   forward(const v3i& v)  const { return v3i(v[1], v[2], v[0]); }
-  inline v3i   backward(const v3i& v) const { return v3i(v[2], v[0], v[1]); }
-  inline uchar along() const { return ALONG_X; }
+  inline v3i  forward(const v3i& v)  const { return v3i(v[1], v[2], v[0]); }
+  inline v3i  backward(const v3i& v) const { return v3i(v[2], v[0], v[1]); }
+  inline uint along() const { return ALONG_X; }
 };
 
 // --------------------------------------------------------------
@@ -163,7 +167,7 @@ template <class S>
 void rasterize(
   const v3u&                  tri,
   const std::vector<v3i>&     pts,
-  Array3D<uchar>&             _voxs)
+  Array3D<uint>&             _voxs)
 {
   const S swizzler;
   v3i tripts[3] = {
@@ -218,7 +222,7 @@ void rasterize(
 
 // This version is more robust by using all three direction
 // and voting among them to decide what is filled or not
-void fillInsideVoting(Array3D<uchar>& _voxs)
+void fillInsideVoting(Array3D<uint>& _voxs)
 {
   // along x
   ForIndex(k, _voxs.zsize()) {
@@ -264,7 +268,7 @@ void fillInsideVoting(Array3D<uchar>& _voxs)
   }
   // voting
   ForArray3D(_voxs, i, j, k) {
-    uchar v = _voxs.at(i, j, k);
+    uint v = _voxs.at(i, j, k);
     int votes =
       (  (v & INSIDE_X) ? 1 : 0)
       + ((v & INSIDE_Y) ? 1 : 0)
@@ -280,7 +284,7 @@ void fillInsideVoting(Array3D<uchar>& _voxs)
 
 // --------------------------------------------------------------
 
-void fillInside(Array3D<uchar>& _voxs)
+void fillInside(Array3D<uint>& _voxs)
 {
   ForIndex(k, _voxs.zsize()) {
     ForIndex(j, _voxs.ysize()) {
@@ -299,7 +303,7 @@ void fillInside(Array3D<uchar>& _voxs)
 
 // --------------------------------------------------------------
 
-void insideFilter(Array3D<uchar>& _voxs)
+void insideFilter(Array3D<uint>& _voxs)
 {
   ForIndex(k, _voxs.zsize()) {
     ForIndex(j, _voxs.ysize()) {
@@ -314,7 +318,7 @@ void insideFilter(Array3D<uchar>& _voxs)
 
 // --------------------------------------------------------------
 
-void parityFilter(Array3D<uchar>& _voxs)
+void parityFilter(Array3D<uint>& _voxs)
 {
   ForIndex(k, _voxs.zsize()) {
     ForIndex(j, _voxs.ysize()) {
@@ -329,7 +333,7 @@ void parityFilter(Array3D<uchar>& _voxs)
 
 // --------------------------------------------------------------
 
-void sphereFilter(Array3D<uchar>& _voxs)
+void sphereFilter(Array3D<uint>& _voxs)
 {
   const int r = static_cast<int>(std::ceilf(SPHERE_RADIUS));
   ForIndex(k, _voxs.zsize()) {
@@ -358,37 +362,37 @@ template <bool sign> // true: positive, false: negative
 class ProjX
 {
 public:
-  inline v2u  projSize (const Array3D<uchar>& voxs) const { return v2u(voxs.ysize(), voxs.zsize());               }
-  inline v3u  projLoop (const Array3D<uchar>& voxs) const { return v3u(voxs.ysize(), voxs.zsize(), voxs.xsize()); }
-  inline v3u  projCoord(const v3u coord)            const { return v3u(coord[2], coord[0], coord[1]);             }
-  inline uint initValue(const Array3D<uchar>& voxs) const { return (sign ? voxs.xsize() - 1 : 0);                 }
-  inline bool getSign  ()                           const { return sign;                                          }
+  inline v2u  projSize (const Array3D<uint>& voxs) const { return v2u(voxs.ysize(), voxs.zsize());               }
+  inline v3u  projLoop (const Array3D<uint>& voxs) const { return v3u(voxs.ysize(), voxs.zsize(), voxs.xsize()); }
+  inline v3u  projCoord(const v3u coord          ) const { return v3u(coord[2], coord[0], coord[1]);             }
+  inline uint initValue(const Array3D<uint>& voxs) const { return (sign ? voxs.xsize() - 1 : 0);                 }
+  inline bool getSign  ()                          const { return sign;                                          }
 };
 
 template <bool sign> // true: positive, false: negative
 class ProjY
 {
 public:
-  inline v2u  projSize (const Array3D<uchar>& voxs) const { return v2u(voxs.xsize(), voxs.zsize());               }
-  inline v3u  projLoop (const Array3D<uchar>& voxs) const { return v3u(voxs.xsize(), voxs.zsize(), voxs.ysize()); }
-  inline v3u  projCoord(const v3u coord           ) const { return v3u(coord[0], coord[2], coord[1]);             }
-  inline uint initValue(const Array3D<uchar>& voxs) const { return (sign ? voxs.ysize() - 1 : 0);                 }
-  inline bool getSign  ()                           const { return sign;                                          }
+  inline v2u  projSize (const Array3D<uint>& voxs) const { return v2u(voxs.xsize(), voxs.zsize());               }
+  inline v3u  projLoop (const Array3D<uint>& voxs) const { return v3u(voxs.xsize(), voxs.zsize(), voxs.ysize()); }
+  inline v3u  projCoord(const v3u coord          ) const { return v3u(coord[0], coord[2], coord[1]);             }
+  inline uint initValue(const Array3D<uint>& voxs) const { return (sign ? voxs.ysize() - 1 : 0);                 }
+  inline bool getSign  ()                          const { return sign;                                          }
 };
 
 template <bool sign> // true: positive, false: negative
 class ProjZ
 {
 public:
-  inline v2u  projSize (const Array3D<uchar>& voxs) const { return v2u(voxs.xsize(), voxs.ysize());               }
-  inline v3u  projLoop (const Array3D<uchar>& voxs) const { return v3u(voxs.xsize(), voxs.ysize(), voxs.zsize()); }
-  inline v3u  projCoord(const v3u coord)            const { return v3u(coord[0], coord[1], coord[2]);             }
-  inline uint initValue(const Array3D<uchar>& voxs) const { return (sign ? voxs.zsize() - 1 : 0);                 }
-  inline bool getSign  ()                           const { return sign;                                          }
+  inline v2u  projSize (const Array3D<uint>& voxs) const { return v2u(voxs.xsize(), voxs.ysize());               }
+  inline v3u  projLoop (const Array3D<uint>& voxs) const { return v3u(voxs.xsize(), voxs.ysize(), voxs.zsize()); }
+  inline v3u  projCoord(const v3u coord)           const { return v3u(coord[0], coord[1], coord[2]);             }
+  inline uint initValue(const Array3D<uint>& voxs) const { return (sign ? voxs.zsize() - 1 : 0);                 }
+  inline bool getSign  ()                          const { return sign;                                          }
 };
 
 template<class P>
-Array2D<uint> orthogonalProjection(const Array3D<uchar>& voxs, const v3i axis)
+Array2D<uint> orthogonalProjection(const Array3D<uint>& voxs, const v3i axis)
 {
   const P projAxis;
   Array2D<uint> proj;
@@ -413,7 +417,7 @@ Array2D<uint> orthogonalProjection(const Array3D<uchar>& voxs, const v3i axis)
 
 // --------------------------------------------------------------
 
-void collisionFilter(Array3D<uchar>& _voxs)
+void collisionFilter(Array3D<uint>& _voxs)
 {
   Array2D<uint> projX = orthogonalProjection<ProjX<true>>(_voxs, v3i(1, 0, 0));
   Array2D<uint> projY = orthogonalProjection<ProjY<true>>(_voxs, v3i(0, 1, 0));
@@ -426,6 +430,10 @@ void collisionFilter(Array3D<uchar>& _voxs)
           if (projZ.at(i, j) < static_cast<uint>(k)) { // collides with shape
             ForRangeReverse(c, k - 1, 0) {             // all the way down to the bed or...
               if (_voxs.at(i, j, c) & (ALONG_X | ALONG_Y | ALONG_Z)) { // ...stop when coliding with shape
+                ForRange(h, c + 1, k - 1) {
+                  _voxs.at(i, j, h) &= ~OVERHANG; // unmark overhang
+                  _voxs.at(i, j, h) |= PILLAR;    // mark pillar
+                }
                 break;
               }
               _voxs.at(i, j, c) |= OVERHANG;           // move this after the if below if anchors can connect to bridges (bars)
@@ -482,7 +490,7 @@ int main(int argc, char **argv)
 
     // rasterize into voxels
     v3u resolution(mesh->bbox().extent() / tupleMax(mesh->bbox().extent()) * static_cast<float>(VOXEL_RESOLUTION));
-    Array3D<uchar> voxs(resolution);
+    Array3D<uint> voxs(resolution);
     voxs.fill(0);
     {
       Timer tm("rasterization");
