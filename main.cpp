@@ -111,6 +111,15 @@ void saveAsVox(const char *fname, const Array3D<uint>& voxs)
 
 // --------------------------------------------------------------
 
+void saveModelExtent(const char* fname, const v3f modelExtent)
+{
+  std::ofstream f(fname);
+  sl_assert(f.is_open());
+  f << modelExtent[0] << ',' << modelExtent[1] << ',' << modelExtent[2];
+}
+
+// --------------------------------------------------------------
+
 inline bool isInTriangle(int i, int j, const v3i& p0, const v3i& p1, const v3i& p2, int& _depth)
 {
   v2i delta_p0 = v2i(i, j) - v2i(p0);
@@ -489,6 +498,7 @@ int main(int argc, char **argv)
     }
 
     // rasterize into voxels
+
     v3u resolution(mesh->bbox().extent() / tupleMax(mesh->bbox().extent()) * static_cast<float>(VOXEL_RESOLUTION));
     Array3D<uint> voxs(resolution);
     voxs.fill(0);
@@ -542,6 +552,7 @@ int main(int argc, char **argv)
 
     // save the result
     saveAsVox(SRC_PATH "/out.slab.vox", voxs);
+    saveModelExtent(SRC_PATH "/out.slab.info", mesh->bbox().extent());
 
     // report some stats
     int num_in_vox = 0;
