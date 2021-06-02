@@ -78,11 +78,9 @@ void saveAsVox(const char *fname, const Array3D<uchar>& voxs)
 {
   Array<v3b> palette(256); // RGB palette
   palette.fill(0);
-  palette[123] = v3b(127, 0, 127);
-  palette[124] = v3b(255, 0, 0);
-  palette[125] = v3b(0, 255, 0);
-  palette[126] = v3b(0, 0, 255);
-  palette[127] = v3b(255, 255, 255);
+  palette[0  ] = v3b(  0,   0, 255); // pillar
+  palette[252] = v3b(255, 255, 255); // anchor
+  palette[253] = v3b(  0,   0,   0); // solid
   std::ofstream f(fname, std::ios::binary);
   sl_assert(f.is_open())
   long sx = voxs.xsize(), sy = voxs.ysize(), sz = voxs.zsize();
@@ -93,12 +91,12 @@ void saveAsVox(const char *fname, const Array3D<uchar>& voxs)
     ForIndex(j, sy) {
       ForRangeReverse(k, sz - 1, 0) {
         uchar v   = voxs.at(i, j, k);
-        uchar pal = v != 0 ? 127 : 255;
+        uchar pal = v != 0 ? 253 : 255;
         if (v == INSIDE) {
-          pal = 123;
+          pal = 253;
         }
         if (v & OVERHANG) {
-          pal = 124;
+          pal = 252;
         }
         f.write(reinterpret_cast<char*>(&pal), sizeof(uchar) * 1);
       }
@@ -301,6 +299,21 @@ void fillInside(Array3D<uchar>& _voxs)
 
 // --------------------------------------------------------------
 
+void insideFilter(Array3D<uchar>& _voxs)
+{
+  ForIndex(k, _voxs.zsize()) {
+    ForIndex(j, _voxs.ysize()) {
+      ForIndex(i, _voxs.xsize()) {
+        if ((_voxs.at(i, j, k) & OVERHANG) && (_voxs.at(i, j, k - 1) & (ALONG_X | ALONG_Y | ALONG_Z))) {
+          _voxs.at(i, j, k) &= ~OVERHANG;
+        }
+      }
+    }
+  }
+}
+
+// --------------------------------------------------------------
+
 void parityFilter(Array3D<uchar>& _voxs)
 {
   ForIndex(k, _voxs.zsize()) {
@@ -487,6 +500,8 @@ int main(int argc, char **argv)
     {
       Timer tm("filtering");
       std::cerr << "filtering parity/sphere/collision ... ";
+
+      insideFilter(voxs);
 
 #if FILTER_PARITY
       parityFilter(voxs);
