@@ -111,11 +111,12 @@ void saveAsVox(const char *fname, const Array3D<uint>& voxs)
 
 // --------------------------------------------------------------
 
-void saveModelExtent(const char* fname, const v3f modelExtent)
+void saveExtent(const char* fname, const v3f modelExtent, const v3u voxelExtent)
 {
   std::ofstream f(fname);
   sl_assert(f.is_open());
-  f << modelExtent[0] << ',' << modelExtent[1] << ',' << modelExtent[2];
+  f << modelExtent[0] << ',' << modelExtent[1] << ',' << modelExtent[2] << std::endl;
+  f << voxelExtent[0] << ',' << voxelExtent[1] << ',' << voxelExtent[2];
 }
 
 // --------------------------------------------------------------
@@ -552,7 +553,7 @@ int main(int argc, char **argv)
 
     // save the result
     saveAsVox(SRC_PATH "/out.slab.vox", voxs);
-    saveModelExtent(SRC_PATH "/out.slab.info", mesh->bbox().extent());
+    saveExtent(SRC_PATH "/out.slab.info", mesh->bbox().extent(), resolution);
 
     // report some stats
     int num_in_vox = 0;
