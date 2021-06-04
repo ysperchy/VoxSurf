@@ -116,12 +116,15 @@ void saveAsVox(const char *fname, const Array3D<uint>& voxs)
 
 // --------------------------------------------------------------
 
-void saveMatrix(const char* fname, const m4x4f mat, const v3u voxelExtent)
+void saveMatrix(const char* fname, const m4x4f mat)
 {
   std::ofstream f(fname);
   sl_assert(f.is_open());
   ForIndex(i,16) {
-      f << mat[i] << ',';
+    f << mat[i];
+    if (i < 15) {
+      f << ',';
+    }
   }
 }
 
@@ -479,10 +482,11 @@ int main(int argc, char **argv)
     // produce (fixed fp) integer vertices and triangles
     std::vector<v3i> pts;
     std::vector<v3u> tris;
+    m4x4f obj2box;
     {
       float factor = 0.95f;
 
-      m4x4f obj2box =
+      obj2box =
           scaleMatrix(v3f(1.f) / tupleMax(mesh->bbox().extent()))
         * translationMatrix((1 - factor) * 0.5f * mesh->bbox().extent())
         * scaleMatrix(v3f(factor))
@@ -561,7 +565,8 @@ int main(int argc, char **argv)
 
     // save the result
     saveAsVox(SRC_PATH "/out.slab.vox", voxs);
-    saveMatrix(SRC_PATH "/out.slab.info", obj2box, resolution);
+    m4x4f obj2boxAsVox = scaleMatrix(tupleMax(mesh->bbox().extent()) / mesh->bbox().extent()) * obj2box;
+    saveMatrix(SRC_PATH "/out.slab.info", obj2boxAsVox);
 
     // report some stats
     int num_in_vox = 0;
