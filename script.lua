@@ -9,7 +9,7 @@ function support_shape(x0,y0,z0,x1,y1,z1,t)
   v1 = v(x1,y1,z1)
   vp = v1 - v0
   l = length(vp)
-  r = 1.0
+  r = 0.1
   if (t == 'A') then
     return translate(v0) * frame(vp) * cylinder(r,l)
   elseif (t == 'B') then
@@ -68,7 +68,7 @@ for line in io.lines(Path..segmentsfile) do
 	ey * y1 + offset * vdy,
 	ez * z1 + 0.0 * vdz,
 	-- type
-	t
+	t)
 	
   if (t == 'A') then
     segmentsA[#segmentsA + 1] = shape

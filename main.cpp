@@ -52,15 +52,16 @@ vertices.
 #define FP_SCALE  (1<<FP_POW)
 #define BOX_SCALE v3f(VOXEL_RESOLUTION*FP_SCALE)
 
-#define ALONG_X  1
-#define ALONG_Y  2
-#define ALONG_Z  4
-#define INSIDE   8
-#define INSIDE_X 16
-#define INSIDE_Y 32
-#define INSIDE_Z 64
-#define OVERHANG 128
-#define PILLAR   256
+#define ALONG_X   1
+#define ALONG_Y   2 
+#define ALONG_Z   4
+#define INSIDE    8
+#define INSIDE_X  16
+#define INSIDE_Y  32
+#define INSIDE_Z  64
+#define OVERHANG  128
+#define PILLAR    256
+#define COLLISION 512
 
 #define OVERHANG_ANGLE 45
 #define GRAVITY_VECTOR v3f(0,0,1)
@@ -80,6 +81,7 @@ void saveAsVox(const char *fname, const Array3D<uint>& voxs)
   Array<v3b> palette(256); // RGB palette
   palette.fill(0);
   palette[0  ] = v3b(  0,   0, 255); // pillar
+  palette[250] = v3b(128, 128, 128); // feet
   palette[252] = v3b(255, 255, 255); // anchor
   palette[253] = v3b(  0,   0,   0); // solid
   std::ofstream f(fname, std::ios::binary);
@@ -101,6 +103,9 @@ void saveAsVox(const char *fname, const Array3D<uint>& voxs)
         }
         if (v & PILLAR) {
           pal = 0;
+        }
+        if (v & COLLISION) {
+          pal = 250;
         }
         f.write(reinterpret_cast<char*>(&pal), sizeof(uchar) * 1);
       }
@@ -440,13 +445,12 @@ void collisionFilter(Array3D<uint>& _voxs)
           if (projZ.at(i, j) < static_cast<uint>(k)) { // collides with shape
             ForRangeReverse(c, k - 1, 0) {             // all the way down to the bed or...
               if (_voxs.at(i, j, c) & (ALONG_X | ALONG_Y | ALONG_Z)) { // ...stop when coliding with shape
-                ForRange(h, c + 1, k - 1) {
-                  _voxs.at(i, j, h) &= ~OVERHANG; // unmark overhang
-                  _voxs.at(i, j, h) |= PILLAR;    // mark pillar
+                _voxs.at(i, j, c + 1) |= COLLISION;    // mark foot
+                ForRange(h, c + 2, k - 1) {
+                  _voxs.at(i, j, h) |= PILLAR;         // mark pillar
                 }
                 break;
               }
-              _voxs.at(i, j, c) |= OVERHANG;           // move this after the if below if anchors can connect to bridges (bars)
               if (projX.at(j, c) == static_cast<uint>(_voxs.xsize() - 1) || projY.at(i, c) == static_cast<uint>(_voxs.ysize() - 1)) { // visible from X+- or Y+-
                 for (int z = c; z < c + COLLISION_RETRACT && z < k && z < static_cast<int>(_voxs.zsize()); z++) {
                   _voxs.at(i, j, z) &= ~OVERHANG;      // unmark retract length
