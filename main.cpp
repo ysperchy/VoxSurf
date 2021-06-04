@@ -116,12 +116,13 @@ void saveAsVox(const char *fname, const Array3D<uint>& voxs)
 
 // --------------------------------------------------------------
 
-void saveExtent(const char* fname, const v3f modelExtent, const v3u voxelExtent)
+void saveMatrix(const char* fname, const m4x4f mat, const v3u voxelExtent)
 {
   std::ofstream f(fname);
   sl_assert(f.is_open());
-  f << modelExtent[0] << ',' << modelExtent[1] << ',' << modelExtent[2] << std::endl;
-  f << voxelExtent[0] << ',' << voxelExtent[1] << ',' << voxelExtent[2];
+  ForIndex(i,16) {
+      f << mat[i] << ',';
+  }
 }
 
 // --------------------------------------------------------------
@@ -480,11 +481,14 @@ int main(int argc, char **argv)
     std::vector<v3u> tris;
     {
       float factor = 0.95f;
-      m4x4f boxtrsf = scaleMatrix(BOX_SCALE)
-        * scaleMatrix(v3f(1.f) / tupleMax(mesh->bbox().extent()))
+
+      m4x4f obj2box =
+          scaleMatrix(v3f(1.f) / tupleMax(mesh->bbox().extent()))
         * translationMatrix((1 - factor) * 0.5f * mesh->bbox().extent())
         * scaleMatrix(v3f(factor))
         * translationMatrix(-mesh->bbox().minCorner());
+
+      m4x4f boxtrsf = scaleMatrix(BOX_SCALE) * obj2box;
 
       // transform vertices
       pts.resize(mesh->numVertices());
@@ -557,7 +561,7 @@ int main(int argc, char **argv)
 
     // save the result
     saveAsVox(SRC_PATH "/out.slab.vox", voxs);
-    saveExtent(SRC_PATH "/out.slab.info", mesh->bbox().extent(), resolution);
+    saveMatrix(SRC_PATH "/out.slab.info", obj2box, resolution);
 
     // report some stats
     int num_in_vox = 0;
