@@ -65,7 +65,7 @@ vertices.
 
 #define OVERHANG_ANGLE 45
 #define GRAVITY_VECTOR v3f(0,0,1)
-#define BED_LEVEL 2
+#define BED_LEVEL 5
 #define FILTER_PARITY 1
 #define PARITY_RULE 1 // 0: odd, 1: even
 #define FILTER_SPHERE 1

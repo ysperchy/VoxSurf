@@ -9,17 +9,18 @@ function support_shape(x0,y0,z0,x1,y1,z1,mtx,t)
   v1 = mtx * v(x1,y1,z1)
   vp = v1 - v0
   l = length(vp)
-  r = 0.1
+  r = 0.3
   if (t == 'A') then
-    return translate(v0) * frame(vp) * cylinder(r,l)
+    --return translate(v0) * frame(vp) * cone(r,0,l*2)
+	return cone(r,0,v0, v1 + v(0,0,1))
   elseif (t == 'B') then
-	return translate(v0) * frame(vp) * cylinder(r,l)
+	return translate(v0) * frame(vp) * translate(0,0,l/2) * ccube(r*2,0.4,l)
   elseif (t == 'D') then
-    return translate(v0) * frame(vp) * cylinder(r,l)
+    return translate(v0) * union({sphere(r), frame(vp) * cylinder(r,l), translate(vp) * sphere(r)})
   elseif (t == 'F') then
-	return translate(v0) * frame(vp) * cylinder(r,l)
+	return cone(0,r,v1+ v(0,0,-1), v0)
   elseif (t == 'P') then
-	return translate(v0) * frame(vp) * cylinder(r,l)
+	return translate(v0) * frame(vp) * translate(0,0,l/2) * ccube(r*2,r*2,l)
   else
     return Void
   end
@@ -84,19 +85,10 @@ for line in io.lines(Path..segmentsfile) do
 end
 
 -- Output shape and supports
-emit(model,0)
-emit(union(segmentsA),1)
-emit(union(segmentsB),2)
-emit(union(segmentsD),3)
-emit(union(segmentsF),4)
-emit(union(segmentsP),5)
-
--- Debug shapes for purposes of checking aligment with normalized voxel segments and model extent from voxelizer
---boundingboxV = translate(bx:min_corner()) * ocube(ex,ey,ez * 0.999)
---boundingboxM = translate(bx:min_corner()) * ocube(bx:extent().x,bx:extent().y,bx:extent().z * 0.999)
---barX = translate(bx:min_corner()) * ocube(ex,1,1)
---barY = translate(bx:min_corner()) * ocube(1,ey,1)
---barZ = translate(bx:min_corner()) * ocube(1,1,ez)
---emit(union{barX, barY, barZ})
---emit(boundingboxV)
---emit(boundingboxM)
+scaleFactor = 1
+emit(translate(0,0,1) * scale(scaleFactor) * model,0)
+emit(scale(scaleFactor) * union(segmentsA),1)
+emit(scale(scaleFactor) * union(segmentsB),2)
+emit(scale(scaleFactor) * union(segmentsD),3)
+emit(scale(scaleFactor) * union(segmentsF),4)
+emit(scale(scaleFactor) * union(segmentsP),5)
