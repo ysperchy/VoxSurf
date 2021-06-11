@@ -65,9 +65,9 @@ vertices.
 
 #define OVERHANG_ANGLE 45
 #define GRAVITY_VECTOR v3f(0,0,1)
-#define BED_LEVEL 5
+#define BED_LEVEL 0
 #define FILTER_PARITY 1
-#define PARITY_RULE 1 // 0: odd, 1: even
+#define PARITY_RULE 0 // 0: even, 1: odd
 #define FILTER_SPHERE 1
 #define SPHERE_RADIUS 3.0f
 #define FILTER_COLLISION 1
@@ -342,7 +342,7 @@ void parityFilter(Array3D<uint>& _voxs)
   ForIndex(k, _voxs.zsize()) {
     ForIndex(j, _voxs.ysize()) {
       ForIndex(i, _voxs.xsize()) {
-        if (!(i % 2 == PARITY_RULE && j % 2 == PARITY_RULE)) {
+        if (!((static_cast<int>(_voxs.xsize()) - 1 - i) % 2 == PARITY_RULE && (static_cast<int>(_voxs.ysize()) - 1 - j) % 2 == PARITY_RULE)) {
           _voxs.at(i, j, k) &= ~OVERHANG;
         }
       }

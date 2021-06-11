@@ -88,7 +88,10 @@ end
 scaleFactor = 1
 emit(translate(0,0,1) * scale(scaleFactor) * model,0)
 emit(scale(scaleFactor) * union(segmentsA),1)
-emit(scale(scaleFactor) * union(segmentsB),2)
-emit(scale(scaleFactor) * union(segmentsD),3)
-emit(scale(scaleFactor) * union(segmentsF),4)
-emit(scale(scaleFactor) * union(segmentsP),5)
+emit(scale(scaleFactor) * union(segmentsB),1)
+emit(scale(scaleFactor) * union(segmentsD),1)
+emit(scale(scaleFactor) * union(segmentsF),1)
+emit(scale(scaleFactor) * union(segmentsP),1)
+
+set_setting_value('extruder_1', 1)
+set_setting_value('filament_priming_mm_1', 0)
