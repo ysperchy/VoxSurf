@@ -66,6 +66,7 @@ vertices.
 #define OVERHANG_ANGLE 45
 #define GRAVITY_VECTOR v3f(0,0,1)
 #define BED_LEVEL 0
+#define EMPTY_SPACE 5
 #define FILTER_PARITY 1
 #define PARITY_RULE 0 // 0: even, 1: odd
 #define FILTER_SPHERE 1
@@ -484,7 +485,11 @@ int main(int argc, char **argv)
     std::vector<v3u> tris;
     m4x4f obj2box;
     {
-      float factor = 0.95f;
+      //float factor = 0.95f;
+      // calculate factor to leave empty space in the voxel grid
+      float factor = 1.0f;
+      v3u resolution(mesh->bbox().extent() / tupleMax(mesh->bbox().extent()) * static_cast<float>(VOXEL_RESOLUTION));
+      factor -= static_cast<float>(EMPTY_SPACE + 1) * 2.0f / static_cast<float>(tupleMin(resolution));
 
       obj2box =
           scaleMatrix(v3f(1.f) / tupleMax(mesh->bbox().extent()))
