@@ -82,6 +82,7 @@ int   g_OHAngle  = OVERHANG_ANGLE;
 float g_Radius   = SPHERE_RADIUS;
 float g_RotZ     = 0;
 v3f   g_BoxScale = v3f(static_cast<float>(g_VoxRes)*FP_SCALE);
+std::string g_ModelFile = "model.stl";
 
 // --------------------------------------------------------------
 
@@ -511,7 +512,10 @@ int main(int argc, char **argv)
   // read command line arguments
   for (int n = 1; n < argc; n++) {
     std::string arg(argv[n]);
-    if (arg == "-res") { // voxel resolution
+    if (arg == "-model") {
+      if (argc - n <= 1) continue;
+      g_ModelFile = std::string(argv[++n]);
+    } else if (arg == "-res") { // voxel resolution
       if (argc - n <= 1) continue;
       g_VoxRes = std::stoi(std::string(argv[++n]));
     } else if (arg == "-angle") { // overhang angle
@@ -529,7 +533,7 @@ int main(int argc, char **argv)
   try {
 
     // load triangle mesh
-    TriangleMesh_Ptr mesh(loadTriangleMesh(SRC_PATH "/model.stl"));
+    TriangleMesh_Ptr mesh(loadTriangleMesh((std::string(SRC_PATH) + "/" + g_ModelFile).c_str()));
     // produce (fixed fp) integer vertices and triangles
     std::vector<v3i> pts;
     std::vector<v3u> tris;
