@@ -73,6 +73,7 @@ vertices.
 #define SPHERE_RADIUS 3.0f
 #define FILTER_COLLISION 1
 #define COLLISION_RETRACT 0
+#define VISIBILITY_RADIUS 0 // visibility square-radius when extending pillars down
 
 // --------------------------------------------------------------
 
@@ -456,9 +457,33 @@ void collisionFilter(Array3D<uint>& _voxs)
                 }
                 break;
               }
+#if 1
+              bool visibleX = true;
+              bool visibleY = true;
+              ForRange(x, std::max(j - VISIBILITY_RADIUS, 0), std::min(j + VISIBILITY_RADIUS, static_cast<int>(_voxs.ysize()) - 1)) {
+                ForRange(y, std::max(c - VISIBILITY_RADIUS, 0), std::min(c + VISIBILITY_RADIUS, static_cast<int>(_voxs.zsize()) - 1)) {
+                  if (!(projX.at(x, y) == static_cast<uint>(_voxs.xsize() - 1))) {
+                    visibleX = false;
+                    break;
+                  }
+                }
+                if (!visibleX) break;
+              }
+              ForRange(x, std::max(i - VISIBILITY_RADIUS, 0), std::min(i + VISIBILITY_RADIUS, static_cast<int>(_voxs.xsize()) - 1)) {
+                ForRange(y, std::max(c - VISIBILITY_RADIUS, 0), std::min(c + VISIBILITY_RADIUS, static_cast<int>(_voxs.zsize()) - 1)) {
+                  if (!(projY.at(x, y) == static_cast<uint>(_voxs.ysize() - 1))) {
+                    visibleY = false;
+                    break;
+                  }
+                }
+                if (!visibleY) break;
+              }
+              if (visibleX || visibleY) {
+#else
               if (projX.at(j, c) == static_cast<uint>(_voxs.xsize() - 1) || projY.at(i, c) == static_cast<uint>(_voxs.ysize() - 1)) { // visible from X+- or Y+-
+#endif         
                 for (int z = c; z < c + COLLISION_RETRACT && z < k && z < static_cast<int>(_voxs.zsize()); z++) {
-                  _voxs.at(i, j, z) &= ~OVERHANG;      // unmark retract length
+                  //_voxs.at(i, j, z) &= ~OVERHANG;      // unmark retract length
                 }
                 break;
               }
