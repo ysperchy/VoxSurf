@@ -77,6 +77,14 @@ vertices.
 
 // --------------------------------------------------------------
 
+int   g_VoxRes   = VOXEL_RESOLUTION;
+int   g_OHAngle  = OVERHANG_ANGLE;
+float g_Radius   = SPHERE_RADIUS;
+float g_RotZ     = 0;
+v3f   g_BoxScale = v3f(static_cast<float>(g_VoxRes)*FP_SCALE);
+
+// --------------------------------------------------------------
+
 // saves a voxel file (.slab.vox format, can be imported by MagicaVoxel)
 void saveAsVox(const char *fname, const Array3D<uint>& voxs)
 {
@@ -212,7 +220,7 @@ void rasterize(
   float cosAngle = dot(nrml, GRAVITY_VECTOR);
   float angleRad = std::acosf(cosAngle); // return value on interval [0 - pi]
   float angleDeg = angleRad * 180.0f / static_cast<float>(M_PI);
-  bool overhang = angleDeg < static_cast<float>(OVERHANG_ANGLE);
+  bool overhang = angleDeg < static_cast<float>(g_OHAngle);
   // proceed
   AAB<2, int> pixbx;
   pixbx.addPoint(v2i(tripts[0]) / FP_SCALE);
@@ -356,7 +364,7 @@ void parityFilter(Array3D<uint>& _voxs)
 
 void sphereFilter(Array3D<uint>& _voxs)
 {
-  const int r = static_cast<int>(std::ceilf(SPHERE_RADIUS));
+  const int r = static_cast<int>(std::ceilf(g_Radius));
   ForIndex(k, _voxs.zsize()) {
     ForIndex(j, _voxs.ysize()) {
       ForIndex(i, _voxs.xsize()) {
@@ -364,7 +372,7 @@ void sphereFilter(Array3D<uint>& _voxs)
           ForRange(c, std::max(0, k - r), std::min(k + r, static_cast<int>(_voxs.zsize()) - 1)) {
             ForRange(b, std::max(0, j - r), std::min(j + r, static_cast<int>(_voxs.ysize()) - 1)) {
               ForRange(a, std::max(0, i - r), std::min(i + r, static_cast<int>(_voxs.xsize()) - 1)) {
-                if (static_cast<float>(sqLength(v3i(i-a,j-b,k-c))) < SPHERE_RADIUS * SPHERE_RADIUS) { // inside radius
+                if (static_cast<float>(sqLength(v3i(i-a,j-b,k-c))) < g_Radius * g_Radius) { // inside radius
                   _voxs.at(a, b, c) &= ~OVERHANG;
                 }
               }
@@ -483,7 +491,7 @@ void collisionFilter(Array3D<uint>& _voxs)
               if (projX.at(j, c) == static_cast<uint>(_voxs.xsize() - 1) || projY.at(i, c) == static_cast<uint>(_voxs.ysize() - 1)) { // visible from X+- or Y+-
 #endif         
                 for (int z = c; z < c + COLLISION_RETRACT && z < k && z < static_cast<int>(_voxs.zsize()); z++) {
-                  //_voxs.at(i, j, z) &= ~OVERHANG;      // unmark retract length
+                  _voxs.at(i, j, z) &= ~OVERHANG;      // unmark retract length
                 }
                 break;
               }
@@ -500,7 +508,24 @@ void collisionFilter(Array3D<uint>& _voxs)
 
 int main(int argc, char **argv)
 {
-
+  // read command line arguments
+  for (int n = 1; n < argc; n++) {
+    std::string arg(argv[n]);
+    if (arg == "-res") { // voxel resolution
+      if (argc - n <= 1) continue;
+      g_VoxRes = std::stoi(std::string(argv[++n]));
+    } else if (arg == "-angle") { // overhang angle
+      if (argc - n <= 1) continue;
+      g_OHAngle = std::stoi(std::string(argv[++n]));
+    } else if (arg == "-rad") { // filtering radius
+      if (argc - n <= 1) continue;
+      g_Radius = std::stof(std::string(argv[++n]));
+    } else if (arg == "-rotz") {
+      if (argc - n <= 1) continue;
+      g_RotZ = std::stof(std::string(argv[++n]));
+    }
+  }
+  
   try {
 
     // load triangle mesh
@@ -510,10 +535,15 @@ int main(int argc, char **argv)
     std::vector<v3u> tris;
     m4x4f obj2box;
     {
+      // apply z rotation
+      if (g_RotZ != 0) {
+        mesh->applyTransform(quatf(v3f(0, 0, 1), g_RotZ * static_cast<float>(M_PI) / 180.0f).toMatrix());
+      }
+
       //float factor = 0.95f;
       // calculate factor to leave empty space in the voxel grid
       float factor = 1.0f;
-      v3u resolution(mesh->bbox().extent() / tupleMax(mesh->bbox().extent()) * static_cast<float>(VOXEL_RESOLUTION));
+      v3u resolution(mesh->bbox().extent() / tupleMax(mesh->bbox().extent()) * static_cast<float>(g_VoxRes));
       factor -= static_cast<float>(EMPTY_SPACE + 1) * 2.0f / static_cast<float>(tupleMin(resolution));
 
       obj2box =
@@ -522,14 +552,14 @@ int main(int argc, char **argv)
         * scaleMatrix(v3f(factor))
         * translationMatrix(-mesh->bbox().minCorner());
 
-      m4x4f boxtrsf = scaleMatrix(BOX_SCALE) * obj2box;
+      m4x4f boxtrsf = scaleMatrix(g_BoxScale) * obj2box;
 
       // transform vertices
       pts.resize(mesh->numVertices());
       ForIndex(p, mesh->numVertices()) {
         v3f pt   = mesh->posAt(p);
         v3f bxpt = boxtrsf.mulPoint(pt);
-        v3i ipt  = v3i(clamp(round(bxpt), v3f(0.0f), BOX_SCALE - v3f(1.0f)));
+        v3i ipt  = v3i(clamp(round(bxpt), v3f(0.0f), g_BoxScale - v3f(1.0f)));
         pts[p]   = ipt;
       }
       // prepare triangles
@@ -542,7 +572,7 @@ int main(int argc, char **argv)
 
     // rasterize into voxels
 
-    v3u resolution(mesh->bbox().extent() / tupleMax(mesh->bbox().extent()) * static_cast<float>(VOXEL_RESOLUTION));
+    v3u resolution(mesh->bbox().extent() / tupleMax(mesh->bbox().extent()) * static_cast<float>(g_VoxRes));
     Array3D<uint> voxs(resolution);
     voxs.fill(0);
     {
