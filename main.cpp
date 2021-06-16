@@ -74,6 +74,8 @@ vertices.
 #define FILTER_COLLISION 1
 #define COLLISION_RETRACT 0
 #define VISIBILITY_RADIUS 0 // visibility square-radius when extending pillars down
+#define FILTER_DILATION 1
+#define DILATE_LENGTH 1 // in voxels
 
 // --------------------------------------------------------------
 
@@ -356,7 +358,7 @@ void insideFilter(Array3D<uint>& _voxs)
   ForIndex(k, _voxs.zsize()) {
     ForIndex(j, _voxs.ysize()) {
       ForIndex(i, _voxs.xsize()) {
-        if ((_voxs.at(i, j, k) & OVERHANG) && (_voxs.at(i, j, k - 1) & (ALONG_X | ALONG_Y | ALONG_Z))) {
+        if (k > 0 && (_voxs.at(i, j, k) & OVERHANG) && (_voxs.at(i, j, k - 1) & (ALONG_X | ALONG_Y | ALONG_Z))) {
           _voxs.at(i, j, k) &= ~OVERHANG;
         }
       }
@@ -372,6 +374,38 @@ void parityFilter(Array3D<uint>& _voxs)
     ForIndex(j, _voxs.ysize()) {
       ForIndex(i, _voxs.xsize()) {
         if (!((static_cast<int>(_voxs.xsize()) - 1 - i) % 2 == PARITY_RULE && (static_cast<int>(_voxs.ysize()) - 1 - j) % 2 == PARITY_RULE)) {
+          _voxs.at(i, j, k) &= ~OVERHANG;
+        }
+      }
+    }
+  }
+}
+
+// --------------------------------------------------------------
+
+void dilationFilter(Array3D<uint>& _voxs)
+{
+  // create dilation solid values
+  Array3D<bool> voxsDilated(_voxs.xsize(), _voxs.ysize(), _voxs.zsize());
+  voxsDilated.fill(false);
+  ForIndex(k, _voxs.zsize()) {
+    ForIndex(j, _voxs.ysize()) {
+      ForIndex(i, _voxs.xsize()) {
+        if (_voxs.at(i, j, k) & (ALONG_X | ALONG_Y | ALONG_Z)) {
+          ForRange(x, std::max(0, i - DILATE_LENGTH), std::min(static_cast<int>(_voxs.xsize()) - 1, i + DILATE_LENGTH)) {
+            ForRange(y, std::max(0, j - DILATE_LENGTH), std::min(static_cast<int>(_voxs.ysize()) - 1, j + DILATE_LENGTH)) {
+              voxsDilated.at(x, y, k) = true;
+            }
+          }
+        }
+      }
+    }
+  }
+  // erase "buried" (i.e., not reachable from bed level) anchors 
+  ForIndex(k, _voxs.zsize()) {
+    ForIndex(j, _voxs.ysize()) {
+      ForIndex(i, _voxs.xsize()) {
+        if (k > 0 && (_voxs.at(i, j, k) & OVERHANG) && voxsDilated.at(i,j,k-1)) {
           _voxs.at(i, j, k) &= ~OVERHANG;
         }
       }
@@ -617,12 +651,16 @@ int main(int argc, char **argv)
 
     {
       Timer tm("filtering");
-      std::cerr << "filtering parity/sphere/collision ... ";
+      std::cerr << "filtering parity/dilation/sphere/collision ... ";
 
       insideFilter(voxs);
 
 #if FILTER_PARITY
       parityFilter(voxs);
+#endif
+
+#if FILTER_DILATION
+      dilationFilter(voxs);
 #endif
 
 #if FILTER_SPHERE
