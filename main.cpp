@@ -144,6 +144,17 @@ void saveMatrix(const char* fname, const m4x4f mat)
 
 // --------------------------------------------------------------
 
+void savePoints(const char* fname, const std::vector<v3f>& dockers)
+{
+  std::ofstream f(fname);
+  sl_assert(f.is_open());
+  for (const v3f& docker : dockers) {
+    f << docker[0] << ',' << docker[1] << ',' << docker[2] << std::endl;
+  }
+}
+
+// --------------------------------------------------------------
+
 inline bool isInTriangle(int i, int j, const v3i& p0, const v3i& p1, const v3i& p2, int& _depth)
 {
   v2i delta_p0 = v2i(i, j) - v2i(p0);
@@ -643,6 +654,7 @@ int main(int argc, char **argv)
     saveAsVox(SRC_PATH "/out.slab.vox", voxs);
     m4x4f obj2boxAsVox = scaleMatrix(tupleMax(mesh->bbox().extent()) / mesh->bbox().extent()) * obj2box;
     saveMatrix(SRC_PATH "/out.slab.info", obj2boxAsVox);
+    savePoints(SRC_PATH "/out.slab.points", all_dockers);
 
     // report some stats
     int num_in_vox = 0;
