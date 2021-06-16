@@ -200,7 +200,8 @@ template <class S>
 void rasterize(
   const v3u&                  tri,
   const std::vector<v3i>&     pts,
-  Array3D<uint>&             _voxs)
+  Array3D<uint>&             _voxs,
+  std::map<v3i,v3i>&         _dockers)
 {
   const S swizzler;
   v3i tripts[3] = {
@@ -246,6 +247,9 @@ void rasterize(
         if (overhang && vx[2] > BED_LEVEL) {
           _voxs.at(vx[0], vx[1], vx[2]) |= OVERHANG;
         }
+        // generate 3d coordinate and store
+        v3i pt = v3i(i << FP_POW, j << FP_POW, depth);
+        _dockers[v3i(vx[0], vx[1], vx[2])] = pt;
       }
     }
   }
@@ -577,18 +581,28 @@ int main(int argc, char **argv)
 
     Array3D<uint> voxs(resolution);
     voxs.fill(0);
+    std::map<v3i, v3i> dockers;
     {
       Timer tm("rasterization");
       Console::progressTextInit((int)tris.size());
       ForIndex(t, tris.size()) {
         Console::progressTextUpdate(t);
-        rasterize<swizzle_xyz>(tris[t], pts, voxs); // xy view
-        rasterize<swizzle_yzx>(tris[t], pts, voxs); // yz view
-        rasterize<swizzle_zxy>(tris[t], pts, voxs); // zx view
+        rasterize<swizzle_yzx>(tris[t], pts, voxs, dockers); // yz view
+        rasterize<swizzle_zxy>(tris[t], pts, voxs, dockers); // zx view
+        rasterize<swizzle_xyz>(tris[t], pts, voxs, dockers); // xy view
       }
       Console::progressTextEnd();
       std::cerr << std::endl;
     }
+
+    // transform dockers back
+    std::vector<v3f> all_dockers;
+    for (const auto &pi : dockers) {
+      v3f pt = boxtrsf.inverse().mulPoint(v3f(pi.second));
+      all_dockers.push_back(pt);
+    }
+    // save dockers
+    // TODO
 
     {
       Timer tm("filtering");
