@@ -1,10 +1,10 @@
-function find_closest_point(point, points, h)
-  local result
+function find_closest_point(point, points, h, t)
   local distance = math.huge
   for _,p in ipairs(points) do
-    if (p.z > point.z + h) then
+    if ((t == 'A' and p.z > point.z + h) or (t == 'F' and p.z < point.z - h)) then
     local d = length(p - point)
       if (d < distance) then
+        distance = d
         result = p
       end
     end
@@ -25,15 +25,15 @@ function support_shapes(x0,y0,z0,x1,y1,z1,mtx,t)
   l = length(vp)
   r = 0.3
   if (t == 'A') then
-    local v2 = find_closet_point(v0, pointsArray, 1)
+    local v2 = find_closest_point(v0, pointsArray, 1, t)
     return {cone(r,0,v0,v2)}
   elseif (t == 'B') then
 	  return {translate(v0) * frame(vp) * translate(0,0,l/2) * ccube(r*2,0.4,l)}
   elseif (t == 'D') then
     return {translate(v0) * sphere(r), translate(v0) * frame(vp) * cylinder(r,l), translate(v0) * translate(vp) * sphere(r)}
   elseif (t == 'F') then
-  local v2 = find_closet_point(v0, pointsArray, 1)
-	  return {cone(0,r,v1),v2)}
+    local v2 = find_closest_point(v0, pointsArray, 1, t)
+	  return {cone(r,0,v0,v2)}
   elseif (t == 'P') then
 	  return {translate(v0) * frame(vp) * translate(0,0,l/2) * ccube(r*2,r*2,l)}
   end
@@ -47,7 +47,6 @@ model = load(Path..modelfile)
 transfile = 'out.slab.info'
 trans = io.open(Path..transfile)
 line = trans:read()
-print(line)
 m00,m10,m20,m30,m01,m11,m21,m31,m02,m12,m22,m32,m03,m13,m23,m33 = string.match(line, "(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*)") -- bounding box extent
 m00 = tonumber(m00) m10 = tonumber(m10) m20 = tonumber(m20) m30 = tonumber(m30)
 m01 = tonumber(m01) m11 = tonumber(m11) m21 = tonumber(m21) m31 = tonumber(m31)
@@ -59,9 +58,9 @@ box2obj = inverse(obj2box)
 -- Load voxel poins from voxelizer output
 pointsfile = 'out.slab.points'
 pointsArray = {}
-for line in io.lines(Path..pointsfile)
+for line in io.lines(Path..pointsfile) do
   local x,y,z = string.match(line, "(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*)")
-  pointsArray[#pointsArray + 1] = v(x,y,z)
+  pointsArray[#pointsArray + 1] = v(tonumber(x),tonumber(y),tonumber(z))
 end
 
 -- Read segments
@@ -115,6 +114,11 @@ end
 -- Output shape and supports
 scaleFactor = 1
 emit(scale(scaleFactor) * model, 0)
+--[[
+for i = 1,#pointsArray,10 do
+  emit(translate(pointsArray[i].x,pointsArray[i].y,pointsArray[i].z)*cube(0.2), 2)
+end
+]]--
 emit(scale(scaleFactor) * union(supports), 1)
 
 -- Print settings
