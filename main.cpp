@@ -77,11 +77,14 @@ vertices.
 
 // --------------------------------------------------------------
 
-int   g_VoxRes   = VOXEL_RESOLUTION;
-int   g_OHAngle  = OVERHANG_ANGLE;
-float g_Radius   = SPHERE_RADIUS;
-float g_RotZ     = 0;
-v3f   g_BoxScale = v3f(static_cast<float>(g_VoxRes)*FP_SCALE);
+const int g_PadX    = 2;
+const int g_PadY    = 2;
+const int g_PadBtmZ = 3;
+
+float g_VoxSize_mm  = 0.5f;
+int   g_OHAngle     = OVERHANG_ANGLE;
+float g_Radius      = SPHERE_RADIUS;
+float g_RotZ        = 0;
 std::string g_ModelFile = "model.stl";
 
 // --------------------------------------------------------------
@@ -515,9 +518,9 @@ int main(int argc, char **argv)
     if (arg == "-model") {
       if (argc - n <= 1) continue;
       g_ModelFile = std::string(argv[++n]);
-    } else if (arg == "-res") { // voxel resolution
+    } else if (arg == "-mm") { // voxel size
       if (argc - n <= 1) continue;
-      g_VoxRes = std::stoi(std::string(argv[++n]));
+      g_VoxSize_mm = std::stof(std::string(argv[++n]));
     } else if (arg == "-angle") { // overhang angle
       if (argc - n <= 1) continue;
       g_OHAngle = std::stoi(std::string(argv[++n]));
@@ -537,46 +540,41 @@ int main(int argc, char **argv)
     // produce (fixed fp) integer vertices and triangles
     std::vector<v3i> pts;
     std::vector<v3u> tris;
-    m4x4f obj2box;
-    {
-      // apply z rotation
-      if (g_RotZ != 0) {
-        mesh->applyTransform(quatf(v3f(0, 0, 1), g_RotZ * static_cast<float>(M_PI) / 180.0f).toMatrix());
-      }
-
-      //float factor = 0.95f;
-      // calculate factor to leave empty space in the voxel grid
-      float factor = 1.0f;
-      v3u resolution(mesh->bbox().extent() / tupleMax(mesh->bbox().extent()) * static_cast<float>(g_VoxRes));
-      factor -= static_cast<float>(EMPTY_SPACE + 1) * 2.0f / static_cast<float>(tupleMin(resolution));
-
-      obj2box =
-          scaleMatrix(v3f(1.f) / tupleMax(mesh->bbox().extent()))
-        * translationMatrix((1 - factor) * 0.5f * mesh->bbox().extent())
-        * scaleMatrix(v3f(factor))
-        * translationMatrix(-mesh->bbox().minCorner());
-
-      m4x4f boxtrsf = scaleMatrix(g_BoxScale) * obj2box;
-
-      // transform vertices
-      pts.resize(mesh->numVertices());
-      ForIndex(p, mesh->numVertices()) {
-        v3f pt   = mesh->posAt(p);
-        v3f bxpt = boxtrsf.mulPoint(pt);
-        v3i ipt  = v3i(clamp(round(bxpt), v3f(0.0f), g_BoxScale - v3f(1.0f)));
-        pts[p]   = ipt;
-      }
-      // prepare triangles
-      tris.reserve(mesh->numTriangles());
-      ForIndex(t, mesh->numTriangles()) {
-        v3u tri = mesh->triangleAt(t);
-        tris.push_back(tri);
-      }
+   
+    // apply z rotation
+    if (g_RotZ != 0) {
+      mesh->applyTransform(quatf(v3f(0, 0, 1), g_RotZ * static_cast<float>(M_PI) / 180.0f).toMatrix());
     }
 
+    // calculate factor to leave empty space in the voxel grid
+    v3u padding    = v3u(g_PadX * 2 + 2, g_PadY * 2 + 2, g_PadBtmZ + 2);
+    v3u resolution = v3u( mesh->bbox().extent() / g_VoxSize_mm ) + padding;
+    std::cerr << "resolution : " << resolution << std::endl;
+    m4x4f obj2box =
+        scaleMatrix(v3f(1.f) / (v3f(mesh->bbox().extent() + v3f(padding) * g_VoxSize_mm)) )
+      * translationMatrix( v3f(g_PadX + 1, g_PadY + 1, g_PadBtmZ + 1) * g_VoxSize_mm)
+      * translationMatrix(-mesh->bbox().minCorner());
+
+    v3f   boxScale = v3f( v3f(resolution) * (float)FP_SCALE );
+    m4x4f boxtrsf  = scaleMatrix(boxScale) * obj2box;
+
+    // transform vertices
+    pts.resize(mesh->numVertices());
+    ForIndex(p, mesh->numVertices()) {
+      v3f pt   = mesh->posAt(p);
+      v3f bxpt = boxtrsf.mulPoint(pt);
+      v3i ipt  = v3i(clamp(round(bxpt), v3f(0.0f), boxScale - v3f(1.0f)));
+      pts[p]   = ipt;
+    }
+    // prepare triangles
+    tris.reserve(mesh->numTriangles());
+    ForIndex(t, mesh->numTriangles()) {
+      v3u tri = mesh->triangleAt(t);
+      tris.push_back(tri);
+    }
+  
     // rasterize into voxels
 
-    v3u resolution(mesh->bbox().extent() / tupleMax(mesh->bbox().extent()) * static_cast<float>(g_VoxRes));
     Array3D<uint> voxs(resolution);
     voxs.fill(0);
     {
