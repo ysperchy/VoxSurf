@@ -1,13 +1,17 @@
-function find_closest_point(point, points, h, t)
+-- Global variables
+total_length = 0
+radius_supports = 0.3
+anchor_extension = 0
+
+-- helper function
+function find_closest_point(point, points, h)
   local distance = math.huge
   for _,p in ipairs(points) do
-    if ((t == 'A' and p.z > point.z + h) or (t == 'F' and p.z < point.z - h)) then
     local d = length(p - point)
-      if (d < distance) then
-        distance = d
-        result = p
-      end
-    end
+	  if (d < distance) then
+		distance = d
+		result = p
+	  end
   end
   return result
 end
@@ -23,24 +27,29 @@ function support_shapes(x0,y0,z0,x1,y1,z1,mtx,t)
   v1 = mtx * v(x1,y1,z1)
   vp = v1 - v0
   l = length(vp)
-  r = 0.3
+  total_length = total_length + l
+  r = radius_supports
   if (t == 'A') then
-    local v2 = find_closest_point(v0, pointsArray, 1, t)
-    return {cone(r,0,v0,v2)}
+    local v2 = find_closest_point(v1, pointsArray, 0, t)
+	local v3 = normalize(vp) * anchor_extension
+    return {translate(v0) * sphere(r), cone(r, 0, v0, v2 + v3)}
   elseif (t == 'B') then
-	  return {translate(v0) * frame(vp) * translate(0,0,l/2) * ccube(r*2,0.4,l)}
+	return {translate(v0) * frame(vp) * translate(0, 0, l/2) * ccube(r*2, 0.4, l)}
   elseif (t == 'D') then
-    return {translate(v0) * sphere(r), translate(v0) * frame(vp) * cylinder(r,l), translate(v0) * translate(vp) * sphere(r)}
+    return {translate(v0) * sphere(r), translate(v0) * frame(vp) * cylinder(r, l), translate(v0) * translate(vp) * sphere(r)}
   elseif (t == 'F') then
-    local v2 = find_closest_point(v0, pointsArray, 1, t)
-	  return {cone(r,0,v0,v2)}
+    local v2 = find_closest_point(v1, pointsArray, 0, t)
+	local v3 = normalize(vp) * anchor_extension
+	return {translate(v0) * sphere(r), cone(r, 0, v0, v2 + v3)}
   elseif (t == 'P') then
-	  return {translate(v0) * frame(vp) * translate(0,0,l/2) * ccube(r*2,r*2,l)}
+	return {translate(v0) * frame(vp) * translate(0, 0, l/2) * ccube(r*2, r*2, l)}
   end
 end
 
 -- Load model
-modelfile = 'model.stl'
+if (not pipeline_call) then
+  modelfile = 'model.stl'
+end
 model = load(Path..modelfile)
 
 -- Load model transformation from voxelizer output
@@ -64,7 +73,9 @@ for line in io.lines(Path..pointsfile) do
 end
 
 -- Read segments
-segmentsfile = 'segments.csv'
+if (not pipeline_call) then
+  segmentsfile = 'segments.csv'
+end
 segmentsA = {}
 segmentsB = {}
 segmentsD = {}
@@ -113,13 +124,18 @@ end
 
 -- Output shape and supports
 scaleFactor = 1
-emit(scale(scaleFactor) * model, 0)
+if (not pipeline_call) then
+  rotZ = 0
+end
+emit(scale(scaleFactor) * rotate(rotZ, Z) * model, 0)
 --[[
 for i = 1,#pointsArray,10 do
   emit(translate(pointsArray[i].x,pointsArray[i].y,pointsArray[i].z)*cube(0.2), 2)
 end
 ]]--
 emit(scale(scaleFactor) * union(supports), 1)
+
+print('Total lenght of supports: '..math.floor(total_length)..'mm')
 
 -- Print settings
 --set_setting_value('printer', 'Ender3')

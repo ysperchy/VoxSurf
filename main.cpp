@@ -77,6 +77,8 @@ vertices.
 #define FILTER_DILATION 1
 #define DILATE_LENGTH 1 // in voxels
 
+#define RELATIVE_PATH
+
 // --------------------------------------------------------------
 
 const int g_PadX    = 2;
@@ -579,13 +581,21 @@ int main(int argc, char **argv)
     } else if (arg == "-rotz") {
       if (argc - n <= 1) continue;
       g_RotZ = std::stof(std::string(argv[++n]));
+    } else {
+      throw Fatal("Unknown parameter!");
     }
   }
   
   try {
 
     // load triangle mesh
-    TriangleMesh_Ptr mesh(loadTriangleMesh((std::string(SRC_PATH) + "/" + g_ModelFile).c_str()));
+    std::string meshfile;
+#ifdef RELATIVE_PATH
+    meshfile = g_ModelFile;
+#else
+    meshfile = std::string(SRC_PATH) + "/" + g_ModelFile;
+#endif
+    TriangleMesh_Ptr mesh(loadTriangleMesh(meshfile.c_str()));
     // produce (fixed fp) integer vertices and triangles
     std::vector<v3i> pts;
     std::vector<v3u> tris;
@@ -689,9 +699,15 @@ int main(int argc, char **argv)
 #endif
 
     // save the result
-    saveAsVox(SRC_PATH "/out.slab.vox", voxs);
-    saveMatrix(SRC_PATH "/out.slab.info", obj2box);
-    savePoints(SRC_PATH "/out.slab.points", all_dockers);
+    std::string path_folder;
+#ifdef RELATIVE_PATH
+    path_folder = "";
+#else
+    path_folder = std::string(SRC_PATH  "/");
+#endif
+    saveAsVox ((path_folder + "out.slab.vox").c_str(), voxs);
+    saveMatrix((path_folder + "out.slab.info").c_str(), obj2box);
+    savePoints((path_folder + "out.slab.points").c_str(), all_dockers);
 
     // report some stats
     int num_in_vox = 0;
