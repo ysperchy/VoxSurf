@@ -1,3 +1,13 @@
+--[[
+ Salim PERCHY
+ 
+ 17/06/2021
+ 
+ Copyright (c) 2021, INRIA
+ All rights reserved.
+ MFX Team
+--]]
+
 -- Global variables
 total_length = 0
 radius_supports = 0.3

@@ -1,3 +1,13 @@
+--[[
+ Salim PERCHY
+ 
+ 17/06/2021
+ 
+ Copyright (c) 2021, INRIA
+ All rights reserved.
+ MFX Team
+--]]
+
 -- Disclaimer
 print(
 "\nCopyright (c) 2021, INRIA\n"..
@@ -7,15 +17,23 @@ print(
 )
 
 -- PARAMETERS
-model_file = "model.stl"
-voxel_size = 0.5
-overhang_angle = 45
-rotation_z = 0
-
+models          = "models.txt"
+model_file      = "model.stl"
+voxel_size      = 0.5
+overhang_angle  = 45
+rotation_z      = 0
 
 output_voxelizer = "out"
 wave_method_output= "segments.csv"
 exec_time = 0
+
+-- Create list of models
+files_models = {}
+for model in io.lines(Path..models) do
+  files_models[#files_models+1] = model..".stl"
+end
+idx = ui_combo("Model", files_models)
+model_file = files_models[idx+1]
 
 -- Voxelizer
 print("\nCalling voxelizer...\n")
