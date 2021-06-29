@@ -75,7 +75,7 @@ vertices.
 #define COLLISION_RETRACT 0
 #define VISIBILITY_RADIUS 0 // visibility square-radius when extending pillars down
 #define FILTER_DILATION 1
-#define DILATE_LENGTH 1 // in voxels
+#define DILATE_LENGTH 2 // in voxels
 
 #define RELATIVE_PATH
 

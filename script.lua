@@ -148,11 +148,9 @@ emit(scale(scaleFactor) * union(supports), 1)
 print('Total lenght of supports: '..math.floor(total_length)..'mm')
 
 -- Print settings
---set_setting_value('printer', 'Ender3')
-set_setting_value('extruder_1', 1)
-set_setting_value('infill_extruder_1', 1)
-set_setting_value('filament_priming_mm_1', 0)
+set_setting_value('num_shells_1', 0)
 set_setting_value('add_brim', true)
 set_setting_value('brim_distance_to_print_mm', 0)
 set_setting_value('brim_num_contours', 8)
 set_setting_value('enable_z_lift', true)
+set_setting_value('is_support_1', true)
