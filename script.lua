@@ -10,6 +10,8 @@
 
 -- Global variables
 total_length = 0
+number_anchors = 0
+number_feet = 0
 radius_supports = 0.3
 anchor_extension = 0
 
@@ -40,19 +42,21 @@ function support_shapes(x0,y0,z0,x1,y1,z1,mtx,t)
   total_length = total_length + l
   r = radius_supports
   if (t == 'A') then
+    number_anchors = number_anchors + 1
     local v2 = find_closest_point(v1, pointsArray, 0, t)
-	local v3 = normalize(vp) * anchor_extension
+    local v3 = normalize(vp) * anchor_extension
     return {translate(v0) * sphere(r), cone(r, 0, v0, v2 + v3)}
   elseif (t == 'B') then
-	return {translate(v0) * frame(vp) * translate(0, 0, l/2) * ccube(r*2, 0.4, l)}
+    return {translate(v0) * frame(vp) * translate(0, 0, l/2) * ccube(r*2, 0.4, l)}
   elseif (t == 'D') then
     return {translate(v0) * sphere(r), translate(v0) * frame(vp) * cylinder(r, l), translate(v0) * translate(vp) * sphere(r)}
   elseif (t == 'F') then
+    number_feet = number_feet + 1
     local v2 = find_closest_point(v1, pointsArray, 0, t)
-	local v3 = normalize(vp) * anchor_extension
-	return {translate(v0) * sphere(r), cone(r, 0, v0, v2 + v3)}
+    local v3 = normalize(vp) * anchor_extension
+    return {translate(v0) * sphere(r), cone(r, 0, v0, v2 + v3)}
   elseif (t == 'P') then
-	return {translate(v0) * frame(vp) * translate(0, 0, l/2) * ccube(r*2, r*2, l)}
+    return {translate(v0) * frame(vp) * translate(0, 0, l/2) * ccube(r*2, r*2, l)}
   end
 end
 
@@ -146,6 +150,10 @@ end
 emit(scale(scaleFactor) * union(supports), 1)
 
 print('Total lenght of supports: '..math.floor(total_length)..'mm')
+print('Total number of anchors: '..math.floor(number_anchors))
+print('Total number of feet: '..math.floor(number_feet))
+print('Ratio Anchors/Feet: '..(number_anchors / number_feet))
+print('Z angle rotation: '..(rotZ))
 
 -- Print settings
 set_setting_value('num_shells_1', 0)
