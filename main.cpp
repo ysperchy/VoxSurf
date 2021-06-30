@@ -66,12 +66,11 @@ vertices.
 #define OVERHANG_ANGLE 45
 #define GRAVITY_VECTOR v3f(0,0,1)
 #define BED_LEVEL 0
-#define EMPTY_SPACE 5
 #define FILTER_PARITY 1
 #define PARITY_RULE 0 // 0: even, 1: odd
 #define FILTER_SPHERE 1
 #define SPHERE_RADIUS 3.0f
-#define FILTER_COLLISION 1
+#define FILTER_COLLISION 0
 #define COLLISION_RETRACT 0
 #define VISIBILITY_RADIUS 0 // visibility square-radius when extending pillars down
 #define FILTER_DILATION 1
@@ -81,8 +80,8 @@ vertices.
 
 // --------------------------------------------------------------
 
-const int g_PadX    = 2;
-const int g_PadY    = 2;
+const int g_PadX    = 2 + DILATE_LENGTH;
+const int g_PadY    = 2 + DILATE_LENGTH;
 const int g_PadBtmZ = 3;
 
 float g_VoxSize_mm  = 0.5f;
@@ -388,27 +387,28 @@ void parityFilter(Array3D<uint>& _voxs)
 void dilationFilter(Array3D<uint>& _voxs)
 {
   // create dilation solid values
-  Array3D<bool> voxsDilated(_voxs.xsize(), _voxs.ysize(), _voxs.zsize());
-  voxsDilated.fill(false);
+  Array3D<uint> voxsDilated(_voxs);
   ForIndex(k, _voxs.zsize()) {
     ForIndex(j, _voxs.ysize()) {
       ForIndex(i, _voxs.xsize()) {
         if (_voxs.at(i, j, k) & (ALONG_X | ALONG_Y | ALONG_Z)) {
           ForRange(x, std::max(0, i - DILATE_LENGTH), std::min(static_cast<int>(_voxs.xsize()) - 1, i + DILATE_LENGTH)) {
             ForRange(y, std::max(0, j - DILATE_LENGTH), std::min(static_cast<int>(_voxs.ysize()) - 1, j + DILATE_LENGTH)) {
-              voxsDilated.at(x, y, k) = true;
+              voxsDilated.at(x, y, k) |= INSIDE;
             }
           }
         }
       }
     }
   }
+  _voxs = voxsDilated;
   // erase "buried" (i.e., not reachable from bed level) anchors 
-  ForIndex(k, _voxs.zsize()) {
+  ForRangeReverse(k, _voxs.zsize() - 1, 0) {
     ForIndex(j, _voxs.ysize()) {
       ForIndex(i, _voxs.xsize()) {
-        if (k > 0 && (_voxs.at(i, j, k) & OVERHANG) && voxsDilated.at(i,j,k-1)) {
+        if (k > 0 && (_voxs.at(i, j, k) & OVERHANG) && (voxsDilated.at(i,j,k-1) & INSIDE)) {
           _voxs.at(i, j, k) &= ~OVERHANG;
+          _voxs.at(i, j, k-1) |= OVERHANG;
         }
       }
     }
@@ -489,7 +489,7 @@ Array2D<uint> orthogonalProjection(const Array3D<uint>& voxs, const v3i axis)
       bool sign = projAxis.getSign();
       for (int c = (sign ? 0 : static_cast<int>(loopSize[2] - 1)); (sign ? c < static_cast<int>(loopSize[2]) : c >= 0); (sign ? c++ : c--)) {
         v3u coord = projAxis.projCoord(v3u(a, b, c));
-        if (voxs.at(coord[0], coord[1], coord[2]) & (ALONG_X | ALONG_Y | ALONG_Z)) {
+        if (voxs.at(coord[0], coord[1], coord[2]) & (ALONG_X | ALONG_Y | ALONG_Z | INSIDE)) {
           proj.at(a, b) = c;
           break;
         }
@@ -513,7 +513,7 @@ void collisionFilter(Array3D<uint>& _voxs)
         if (_voxs.at(i, j, k) & OVERHANG) {
           if (projZ.at(i, j) < static_cast<uint>(k)) { // collides with shape
             ForRangeReverse(c, k - 1, 0) {             // all the way down to the bed or...
-              if (_voxs.at(i, j, c) & (ALONG_X | ALONG_Y | ALONG_Z)) { // ...stop when coliding with shape
+              if (_voxs.at(i, j, c) & (ALONG_X | ALONG_Y | ALONG_Z | INSIDE)) { // ...stop when coliding with shape
                 _voxs.at(i, j, c + 1) |= COLLISION;    // mark foot
                 ForRange(h, c + 2, k - 1) {
                   _voxs.at(i, j, h) |= PILLAR;         // mark pillar
