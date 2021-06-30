@@ -262,7 +262,7 @@ void rasterize(
           _voxs.at(vx[0], vx[1], vx[2]) |= OVERHANG;
         }
         // generate 3d coordinate and store
-        v3i pt = swizzler.backward(v3i(i << FP_POW, j << FP_POW, depth));
+        v3i pt = swizzler.backward(v3i((i << FP_POW) + (1 << (FP_POW - 1)), (j << FP_POW) + (1 << (FP_POW - 1)), depth));
         _dockers[v3i(vx[0], vx[1], vx[2])] = pt;
       }
     }

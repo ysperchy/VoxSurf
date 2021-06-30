@@ -16,7 +16,7 @@ radius_supports = 0.3
 anchor_extension = 0
 
 -- helper function
-function find_closest_point(point, points, h)
+function find_closest_point(point, points)
   local distance = math.huge
   for _,p in ipairs(points) do
     local d = length(p - point)
