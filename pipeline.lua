@@ -67,6 +67,7 @@ print(
 "\n\ndone!"..
 "\nWave function collapse method executed in "..exec_time.."s\n"
 )
+exec_time_wave_func = exec_time
 
 -- IceSL script
 print("\Calling IceSL script...\n")

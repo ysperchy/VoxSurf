@@ -154,6 +154,7 @@ statsFile = "stats.txt"
 stats = io.open(Path..statsFile, "a")
 io.output(stats)
 io.write('Model: '..modelfile..'\n')
+io.write('Supports generation time (s): '..math.floor(exec_time_wave_func)..'\n')
 io.write('Total lenght of supports (mm): '..math.floor(total_length)..'\n')
 io.write('Total number of anchors: '..math.floor(number_anchors)..'\n')
 io.write('Total number of feet: '..math.floor(number_feet)..'\n')
