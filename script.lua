@@ -149,11 +149,18 @@ end
 ]]--
 emit(scale(scaleFactor) * union(supports), 1)
 
-print('Total lenght of supports: '..math.floor(total_length)..'mm')
-print('Total number of anchors: '..math.floor(number_anchors))
-print('Total number of feet: '..math.floor(number_feet))
-print('Ratio Anchors/Feet: '..(number_anchors / number_feet))
-print('Z angle rotation: '..(rotZ))
+-- Write stats
+statsFile = "stats.txt"
+stats = io.open(Path..statsFile, "a")
+io.output(stats)
+io.write('Model: '..modelfile..'\n')
+io.write('Total lenght of supports (mm): '..math.floor(total_length)..'\n')
+io.write('Total number of anchors: '..math.floor(number_anchors)..'\n')
+io.write('Total number of feet: '..math.floor(number_feet)..'\n')
+io.write('Ratio anchors/feet: '..(number_anchors / number_feet)..'\n')
+io.write('Z rotation (degrees): '..(rotZ)..'\n')
+io.write('\n')
+io.close(stats)
 
 -- Print settings
 set_setting_value('num_shells_1', 0)

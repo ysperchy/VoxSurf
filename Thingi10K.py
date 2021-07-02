@@ -63,6 +63,7 @@ def main():
     models_file.close();
     file_ids = [];
     for model_id in models_ids:
+        model_id = model_id.split('.')[0]
         file_ids.append(int(model_id));
     for file_id in file_ids:
         download_file(file_id, args.output);

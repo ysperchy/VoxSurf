@@ -22,6 +22,7 @@ model_file      = "model.stl"
 voxel_size      = 0.5
 overhang_angle  = 45
 rotation_z      = 0
+models_folder   = false
 
 output_voxelizer = "out"
 wave_method_output= "segments.csv"
@@ -30,7 +31,11 @@ exec_time = 0
 -- Create list of models
 files_models = {}
 for model in io.lines(Path..models) do
-  files_models[#files_models+1] = model..".stl"
+  if (models_folder) then
+    files_models[#files_models+1] = 'models/'..model
+  else
+  files_models[#files_models+1] = model
+  end
 end
 idx = ui_combo("Model", files_models)
 model_file = files_models[idx+1]
