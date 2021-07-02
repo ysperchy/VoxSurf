@@ -14,6 +14,9 @@ number_anchors = 0
 number_feet = 0
 radius_supports = 0.3
 anchor_extension = 0
+anchor_end_radius = 0
+feet_extension = 0
+feet_end_radius = 0
 
 -- helper function
 function find_closest_point(point, points)
@@ -45,7 +48,7 @@ function support_shapes(x0,y0,z0,x1,y1,z1,mtx,t)
     number_anchors = number_anchors + 1
     local v2 = find_closest_point(v1, pointsArray, 0, t)
     local v3 = normalize(vp) * anchor_extension
-    return {translate(v0) * sphere(r), cone(r, 0, v0, v2 + v3)}
+    return {translate(v0) * sphere(r), cone(r, anchor_end_radius * r, v0, v2 + v3)}
   elseif (t == 'B') then
     return {translate(v0) * frame(vp) * translate(0, 0, l/2) * ccube(r*2, 0.4, l)}
   elseif (t == 'D') then
@@ -53,8 +56,8 @@ function support_shapes(x0,y0,z0,x1,y1,z1,mtx,t)
   elseif (t == 'F') then
     number_feet = number_feet + 1
     local v2 = find_closest_point(v1, pointsArray, 0, t)
-    local v3 = normalize(vp) * anchor_extension
-    return {translate(v0) * sphere(r), cone(r, 0, v0, v2 + v3)}
+    local v3 = normalize(vp) * feet_extension
+    return {translate(v0) * sphere(r), cone(r, feet_end_radius * r, v0, v2 + v3)}
   elseif (t == 'P') then
     return {translate(v0) * frame(vp) * translate(0, 0, l/2) * ccube(r*2, r*2, l)}
   end
