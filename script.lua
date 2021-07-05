@@ -69,9 +69,13 @@ if (not pipeline_call) then
 end
 model = load(Path..modelfile)
 
--- Load model transformation from voxelizer output
+-- Load model info and transformation from voxelizer output
 transfile = 'out.slab.info'
 trans = io.open(Path..transfile)
+line = trans:read()
+rx,ry,rz = string.match(line, "(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*)")
+line = trans:read()
+vox_size = string.match(line, "(-?%d+.?%d*)")
 line = trans:read()
 m00,m10,m20,m30,m01,m11,m21,m31,m02,m12,m22,m32,m03,m13,m23,m33 = string.match(line, "(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*),(-?%d+.?%d*)") -- bounding box extent
 m00 = tonumber(m00) m10 = tonumber(m10) m20 = tonumber(m20) m30 = tonumber(m30)
@@ -157,6 +161,8 @@ statsFile = "stats.txt"
 stats = io.open(Path..statsFile, "a")
 io.output(stats)
 io.write('Model: '..modelfile..'\n')
+io.write('Voxel resolution: '..'('..rx..','..ry..','..rz..')\n')
+io.write('Voxel size (mm): '..vox_size..'\n')
 io.write('Supports generation time (s): '..math.floor(exec_time_wave_func)..'\n')
 io.write('Total lenght of supports (mm): '..math.floor(total_length)..'\n')
 io.write('Total number of anchors: '..math.floor(number_anchors)..'\n')

@@ -78,7 +78,7 @@ vertices.
 #define DILATE_LENGTH 2 // in voxels
 #define BURIED_FILTER 1
 
-//#define RELATIVE_PATH
+#define RELATIVE_PATH
 
 // --------------------------------------------------------------
 
@@ -135,12 +135,17 @@ void saveAsVox(const char *fname, const Array3D<uint>& voxs)
 
 // --------------------------------------------------------------
 
-void saveMatrix(const char* fname, const m4x4f mat)
+void saveInfo(const char* fname, const m4x4f mat, const v3u res)
 {
   std::ofstream f(fname);
   sl_assert(f.is_open());
   // no scientific notation
   f << std::fixed;
+  // resolution
+  f << res[0] << ',' << res[1] << ',' << res[2] << std::endl;
+  f << g_VoxSize_mm << std::endl;
+  // voxel size
+  // transformation matrux
   ForIndex(i,16) {
     f << mat[i];
     if (i < 15) {
@@ -626,14 +631,22 @@ int main(int argc, char **argv)
     // calculate factor to leave empty space in the voxel grid
     v3u padding    = v3u(g_PadX * 2 + 2, g_PadY * 2 + 2, g_PadBtmZ + 2);
     v3u resolution = v3u( mesh->bbox().extent() / g_VoxSize_mm ) + padding;
+    // check resolution doesn't exceed MagicaVoxel's grid size
+    const int maxGridSize = 256;
+    int diff = std::max(0, static_cast<int>(tupleMax(resolution)) - maxGridSize);
+    if (diff > 0) {
+      g_VoxSize_mm = tupleMax(mesh->bbox().extent() / v3f(resolution - v3u(diff) - padding));
+      resolution = v3u(mesh->bbox().extent() / g_VoxSize_mm) + padding;
+    }
     std::cerr << "resolution : " << resolution << std::endl;
+    std::cerr << "voxel size (mm) : " << g_VoxSize_mm << std::endl;
     m4x4f obj2box =
         scaleMatrix(v3f(1.f) / (v3f(mesh->bbox().extent() + v3f(padding) * g_VoxSize_mm)) )
       * translationMatrix( v3f(g_PadX + 1, g_PadY + 1, g_PadBtmZ + 1) * g_VoxSize_mm)
       * translationMatrix(-mesh->bbox().minCorner())
       ;
 
-    v3f   boxScale = v3f( v3f(resolution) * (float)FP_SCALE );
+    v3f   boxScale = v3f(resolution) * (float)FP_SCALE;
     m4x4f boxtrsf  = scaleMatrix(boxScale) * obj2box;
 
     // transform vertices
@@ -735,7 +748,7 @@ int main(int argc, char **argv)
     path_folder = std::string(SRC_PATH  "/");
 #endif
     saveAsVox ((path_folder + "out.slab.vox").c_str(), voxs);
-    saveMatrix((path_folder + "out.slab.info").c_str(), obj2box);
+    saveInfo  ((path_folder + "out.slab.info").c_str(), obj2box, resolution);
     savePoints((path_folder + "out.slab.points").c_str(), all_dockers);
 
     // report some stats
