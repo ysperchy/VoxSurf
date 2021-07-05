@@ -164,7 +164,7 @@ void savePoints(const char* fname, const std::vector<v3f>& dockers)
 
 // --------------------------------------------------------------
 
-inline bool isInTriangle(int i, int j, const v3i& p0, const v3i& p1, const v3i& p2, int& _depth)
+inline bool isInTriangle(int i, int j, const v3i& p0, const v3i& p1, const v3i& p2, int& _depth, int& _aligned)
 {
   v2i delta_p0 = v2i(i, j) - v2i(p0);
   v2i delta_p1 = v2i(i, j) - v2i(p1);
@@ -177,6 +177,7 @@ inline bool isInTriangle(int i, int j, const v3i& p0, const v3i& p1, const v3i& 
   int64_t c1 = (int64_t)delta_p1[0] * (int64_t)delta21[1] - (int64_t)delta_p1[1] * (int64_t)delta21[0];
   int64_t c2 = (int64_t)delta_p2[0] * (int64_t)delta02[1] - (int64_t)delta_p2[1] * (int64_t)delta02[0];
   bool inside = (c0 <= 0 && c1 <= 0 && c2 <= 0) || (c0 >= 0 && c1 >= 0 && c2 >= 0);
+  _aligned = (c0 == 0) ? 0 : ((c1 == 0) ? 1 : ((c2 == 0) ? 2 : -1));
 
   if (inside) {
     int64_t area = c0 + c1 + c2;
@@ -253,16 +254,19 @@ void rasterize(
   pixbx.addPoint(v2i(tripts[2]) / FP_SCALE);
   for (int j = pixbx.minCorner()[1]; j <= pixbx.maxCorner()[1]; j++) {
     for (int i = pixbx.minCorner()[0]; i <= pixbx.maxCorner()[0]; i++) {
-      int depth;
+      int depth; int aligned=-1;
       if (isInTriangle(
         (i << FP_POW) + (1 << (FP_POW - 1)), // centered
         (j << FP_POW) + (1 << (FP_POW - 1)), // centered
-        tripts[0], tripts[1], tripts[2], depth)) {
+        tripts[0], tripts[1], tripts[2], depth, aligned)) {
         v3i vx = swizzler.backward(v3i(i, j, depth >> FP_POW));
         // tag the voxel as occupied
         // NOTE: voxels are likely to be hit multiple times (e.g. thin features)
         //       we flip the bit every time a hit occurs in a voxel
-        _voxs.at(vx[0], vx[1], vx[2]) = ( _voxs.at(vx[0], vx[1], vx[2]) ^ swizzler.along() );
+        // NOTE: special case with perfect alignment
+        if (aligned == -1 || tri[aligned] < tri[(aligned+1)%3]) {
+          _voxs.at(vx[0], vx[1], vx[2]) = ( _voxs.at(vx[0], vx[1], vx[2]) ^ swizzler.along() );
+        }
         // overhang mark
         if (overhang && vx[2] > BED_LEVEL) {
           _voxs.at(vx[0], vx[1], vx[2]) |= OVERHANG;
@@ -625,7 +629,8 @@ int main(int argc, char **argv)
     m4x4f obj2box =
         scaleMatrix(v3f(1.f) / (v3f(mesh->bbox().extent() + v3f(padding) * g_VoxSize_mm)) )
       * translationMatrix( v3f(g_PadX + 1, g_PadY + 1, g_PadBtmZ + 1) * g_VoxSize_mm)
-      * translationMatrix(-mesh->bbox().minCorner());
+      * translationMatrix(-mesh->bbox().minCorner())
+      ;
 
     v3f   boxScale = v3f( v3f(resolution) * (float)FP_SCALE );
     m4x4f boxtrsf  = scaleMatrix(boxScale) * obj2box;
