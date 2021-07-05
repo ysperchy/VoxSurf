@@ -613,6 +613,7 @@ int main(int argc, char **argv)
     meshfile = std::string(SRC_PATH) + "/" + g_ModelFile;
 #endif
     TriangleMesh_Ptr mesh(loadTriangleMesh(meshfile.c_str()));
+    mesh->mergeVerticesExact();
     // produce (fixed fp) integer vertices and triangles
     std::vector<v3i> pts;
     std::vector<v3u> tris;
