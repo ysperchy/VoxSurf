@@ -635,7 +635,7 @@ int main(int argc, char **argv)
     const int maxGridSize = 256;
     int diff = std::max(0, static_cast<int>(tupleMax(resolution)) - maxGridSize);
     if (diff > 0) {
-      g_VoxSize_mm = tupleMax(mesh->bbox().extent() / v3f(resolution - v3u(diff) - padding));
+      g_VoxSize_mm = tupleMin(mesh->bbox().extent() / v3f(resolution - v3u(diff) - padding));
       resolution = v3u(mesh->bbox().extent() / g_VoxSize_mm) + padding;
     }
     std::cerr << "resolution : " << resolution << std::endl;
