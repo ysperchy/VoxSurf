@@ -585,6 +585,9 @@ int main(int argc, char **argv)
       throw Fatal("Unknown parameter!");
     }
   }
+
+  // no scientific notation
+  std::cout << std::fixed;
   
   try {
 
