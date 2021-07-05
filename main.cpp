@@ -38,6 +38,7 @@ vertices.
 #include <algorithm>
 #include <queue>
 #include <fstream>
+#include <iomanip>
 
 
 // --------------------------------------------------------------
@@ -75,8 +76,9 @@ vertices.
 #define VISIBILITY_RADIUS 0 // visibility square-radius when extending pillars down
 #define FILTER_DILATION 1
 #define DILATE_LENGTH 2 // in voxels
+#define BURIED_FILTER 1
 
-#define RELATIVE_PATH
+//#define RELATIVE_PATH
 
 // --------------------------------------------------------------
 
@@ -137,6 +139,8 @@ void saveMatrix(const char* fname, const m4x4f mat)
 {
   std::ofstream f(fname);
   sl_assert(f.is_open());
+  // no scientific notation
+  f << std::fixed;
   ForIndex(i,16) {
     f << mat[i];
     if (i < 15) {
@@ -151,6 +155,8 @@ void savePoints(const char* fname, const std::vector<v3f>& dockers)
 {
   std::ofstream f(fname);
   sl_assert(f.is_open());
+  // no scientific notation
+  f << std::fixed;
   for (const v3f& docker : dockers) {
     f << docker[0] << ',' << docker[1] << ',' << docker[2] << std::endl;
   }
@@ -384,39 +390,6 @@ void parityFilter(Array3D<uint>& _voxs)
 
 // --------------------------------------------------------------
 
-void dilationFilter(Array3D<uint>& _voxs)
-{
-  // create dilation solid values
-  Array3D<uint> voxsDilated(_voxs);
-  ForIndex(k, _voxs.zsize()) {
-    ForIndex(j, _voxs.ysize()) {
-      ForIndex(i, _voxs.xsize()) {
-        if (_voxs.at(i, j, k) & (ALONG_X | ALONG_Y | ALONG_Z)) {
-          ForRange(x, std::max(0, i - DILATE_LENGTH), std::min(static_cast<int>(_voxs.xsize()) - 1, i + DILATE_LENGTH)) {
-            ForRange(y, std::max(0, j - DILATE_LENGTH), std::min(static_cast<int>(_voxs.ysize()) - 1, j + DILATE_LENGTH)) {
-              voxsDilated.at(x, y, k) |= INSIDE;
-            }
-          }
-        }
-      }
-    }
-  }
-  _voxs = voxsDilated;
-  // erase "buried" (i.e., not reachable from bed level) anchors 
-  ForRangeReverse(k, _voxs.zsize() - 1, 0) {
-    ForIndex(j, _voxs.ysize()) {
-      ForIndex(i, _voxs.xsize()) {
-        if (k > 0 && (_voxs.at(i, j, k) & OVERHANG) && (voxsDilated.at(i,j,k-1) & INSIDE)) {
-          _voxs.at(i, j, k) &= ~OVERHANG;
-          _voxs.at(i, j, k-1) |= OVERHANG;
-        }
-      }
-    }
-  }
-}
-
-// --------------------------------------------------------------
-
 void sphereFilter(Array3D<uint>& _voxs)
 {
   const int r = static_cast<int>(std::ceilf(g_Radius));
@@ -434,6 +407,46 @@ void sphereFilter(Array3D<uint>& _voxs)
             }
           }
           _voxs.at(i, j, k) |= OVERHANG;
+        }
+      }
+    }
+  }
+}
+
+// --------------------------------------------------------------
+
+void dilationFilter(Array3D<uint>& _voxs)
+{
+  // create dilation solid values
+  Array3D<uint> voxsDilated(_voxs);
+  ForIndex(k, _voxs.zsize()) {
+    ForIndex(j, _voxs.ysize()) {
+      ForIndex(i, _voxs.xsize()) {
+        if (_voxs.at(i, j, k) & (ALONG_X | ALONG_Y | ALONG_Z)) {
+        //if (_voxs.at(i, j, k) & INSIDE) {
+          ForRange(x, std::max(0, i - DILATE_LENGTH), std::min(static_cast<int>(_voxs.xsize()) - 1, i + DILATE_LENGTH)) {
+            ForRange(y, std::max(0, j - DILATE_LENGTH), std::min(static_cast<int>(_voxs.ysize()) - 1, j + DILATE_LENGTH)) {
+              voxsDilated.at(x, y, k) |= INSIDE;
+            }
+          }
+        }
+      }
+    }
+  }
+  _voxs = voxsDilated;
+}
+
+// --------------------------------------------------------------
+
+void buriedFilter(Array3D<uint>& _voxs)
+{
+  // erase "buried" (i.e., not reachable from bed level) anchors 
+  ForRangeReverse(k, _voxs.zsize() - 1, 0) {
+    ForIndex(j, _voxs.ysize()) {
+      ForIndex(i, _voxs.xsize()) {
+        if (k > 0 && (_voxs.at(i, j, k) & OVERHANG) && (_voxs.at(i, j, k - 1) & INSIDE)) {
+          _voxs.at(i, j, k) &= ~OVERHANG;
+          _voxs.at(i, j, k - 1) |= OVERHANG;
         }
       }
     }
@@ -585,9 +598,6 @@ int main(int argc, char **argv)
       throw Fatal("Unknown parameter!");
     }
   }
-
-  // no scientific notation
-  std::cout << std::fixed;
   
   try {
 
@@ -664,7 +674,7 @@ int main(int argc, char **argv)
 
     {
       Timer tm("filtering");
-      std::cerr << "filtering parity/dilation/sphere/collision ... ";
+      std::cerr << "filtering parity/sphere/collision ... ";
 
       insideFilter(voxs);
 
@@ -672,9 +682,7 @@ int main(int argc, char **argv)
       parityFilter(voxs);
 #endif
 
-#if FILTER_DILATION
-      dilationFilter(voxs);
-#endif
+
 
 #if FILTER_SPHERE
       sphereFilter(voxs);
@@ -700,6 +708,18 @@ int main(int argc, char **argv)
       std::cerr << " done." << std::endl;
     }
 #endif
+
+    {
+      Timer tm("dilation/filtering");
+#if FILTER_DILATION
+      dilationFilter(voxs);
+#endif
+      std::cerr << "dilating solid/filtering buried anchors ... ";
+#if BURIED_FILTER
+      buriedFilter(voxs);
+#endif
+    }
+
 
     // save the result
     std::string path_folder;
