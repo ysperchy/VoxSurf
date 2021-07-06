@@ -631,13 +631,14 @@ int main(int argc, char **argv)
     // calculate factor to leave empty space in the voxel grid
     v3u padding    = v3u(g_PadX * 2 + 2, g_PadY * 2 + 2, g_PadBtmZ + 2);
     v3u resolution = v3u( mesh->bbox().extent() / g_VoxSize_mm ) + padding;
+#if 0
     // check resolution doesn't exceed MagicaVoxel's grid size
     const int maxGridSize = 256;
-    int diff = std::max(0, static_cast<int>(tupleMax(resolution)) - maxGridSize);
-    if (diff > 0) {
-      g_VoxSize_mm = tupleMin(mesh->bbox().extent() / v3f(resolution - v3u(diff) - padding));
+    if (static_cast<int>(tupleMax(resolution)) - maxGridSize > 0) {
+      g_VoxSize_mm = tupleMax(mesh->bbox().extent() / v3f(v3u(maxGridSize) - padding));
       resolution = v3u(mesh->bbox().extent() / g_VoxSize_mm) + padding;
     }
+#endif
     std::cerr << "resolution : " << resolution << std::endl;
     std::cerr << "voxel size (mm) : " << g_VoxSize_mm << std::endl;
     m4x4f obj2box =
