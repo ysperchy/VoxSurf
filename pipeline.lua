@@ -22,7 +22,8 @@ model_file      = "model.stl"
 voxel_size      = 0.5
 overhang_angle  = 45
 rotation_z      = 0
-models_folder   = false
+no_model_lift   = false
+models_folder   = true
 
 output_voxelizer = "out"
 wave_method_output= "segments.csv"
@@ -37,13 +38,23 @@ for model in io.lines(Path..models) do
   files_models[#files_models+1] = model
   end
 end
+
+-- Tweaks
 idx = ui_combo("Model", files_models)
 model_file = files_models[idx+1]
+voxel_size = ui_scalar("Voxel size (mm)", voxel_size, 0.1, 2.0)
+rotation_z = ui_scalarBox("Rot Z (°)", rotation_z, 5)
+overhang_angle = ui_number("Overhang angle (°)", overhang_angle, 0, 90)
+no_model_lift = ui_bool("No bed gap", no_model_lift)
 
 -- Voxelizer
 print("\nCalling voxelizer...\n")
 t0 = os.time()
-exec_code = os.execute("VoxSurf.exe".." -model "..model_file.." -mm "..voxel_size.." -angle "..overhang_angle.." -rotz "..rotation_z)
+lift_arg = ""
+if (no_model_lift) then
+  lift_arg = " -nolifting"
+end
+exec_code = os.execute("VoxSurf.exe".." -model "..model_file.." -mm "..voxel_size.." -angle "..overhang_angle.." -rotz "..rotation_z..lift_arg)
 t1 = os.time()
 exec_time = os.difftime(t1-t0)
 if (exec_code ~= 0) then

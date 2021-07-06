@@ -66,7 +66,7 @@ vertices.
 
 #define OVERHANG_ANGLE 45
 #define GRAVITY_VECTOR v3f(0,0,1)
-#define BED_LEVEL 0
+#define BED_LEVEL 5
 #define FILTER_PARITY 1
 #define PARITY_RULE 0 // 0: even, 1: odd
 #define FILTER_SPHERE 1
@@ -90,6 +90,7 @@ float g_VoxSize_mm  = 0.5f;
 int   g_OHAngle     = OVERHANG_ANGLE;
 float g_Radius      = SPHERE_RADIUS;
 float g_RotZ        = 0;
+bool  g_NoModelLift = false;
 std::string g_ModelFile = "model.stl";
 
 // --------------------------------------------------------------
@@ -273,7 +274,7 @@ void rasterize(
           _voxs.at(vx[0], vx[1], vx[2]) = ( _voxs.at(vx[0], vx[1], vx[2]) ^ swizzler.along() );
         }
         // overhang mark
-        if (overhang && vx[2] > BED_LEVEL) {
+        if (overhang && vx[2] > g_PadBtmZ) {
           _voxs.at(vx[0], vx[1], vx[2]) |= OVERHANG;
         }
         // generate 3d coordinate and store
@@ -603,6 +604,8 @@ int main(int argc, char **argv)
     } else if (arg == "-rotz") {
       if (argc - n <= 1) continue;
       g_RotZ = std::stof(std::string(argv[++n]));
+    } else if (arg == "-nolifting") {
+      g_NoModelLift = true;
     } else {
       throw Fatal("Unknown parameter!");
     }
@@ -629,7 +632,7 @@ int main(int argc, char **argv)
     }
 
     // calculate factor to leave empty space in the voxel grid
-    v3u padding    = v3u(g_PadX * 2 + 2, g_PadY * 2 + 2, g_PadBtmZ + 2);
+    v3u padding    = v3u(g_PadX * 2 + 2, g_PadY * 2 + 2, g_NoModelLift ? 1 : g_PadBtmZ + 2);
     v3u resolution = v3u( mesh->bbox().extent() / g_VoxSize_mm ) + padding;
 #if 0
     // check resolution doesn't exceed MagicaVoxel's grid size
@@ -643,7 +646,7 @@ int main(int argc, char **argv)
     std::cerr << "voxel size (mm) : " << g_VoxSize_mm << std::endl;
     m4x4f obj2box =
         scaleMatrix(v3f(1.f) / (v3f(mesh->bbox().extent() + v3f(padding) * g_VoxSize_mm)) )
-      * translationMatrix( v3f(g_PadX + 1, g_PadY + 1, g_PadBtmZ + 1) * g_VoxSize_mm)
+      * translationMatrix( v3f(g_PadX + 1, g_PadY + 1, g_NoModelLift ? 0.0f : g_PadBtmZ + 1) * g_VoxSize_mm)
       * translationMatrix(-mesh->bbox().minCorner())
       ;
 
