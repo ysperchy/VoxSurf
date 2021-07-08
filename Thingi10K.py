@@ -29,9 +29,9 @@ except ImportError:
     sys.exit(error_msg);
 
 try:
-    check_call("wget --version".split());
+    check_call("curl --version".split());
 except:
-    error_msg = "Missing command: wget.  To fix it, please run '$ port install wget'";
+    error_msg = "Missing command: curl.  To fix it, install it!";
     sys.exit(error_msg);
 
 def parse_args():
@@ -53,7 +53,7 @@ def download_file(file_id, output_dir):
     output_file = "{}{}".format(file_id, ext.lower());
     output_file = os.path.join(output_dir, output_file);
     print("Downloading {}".format(output_file));
-    command = "wget -q -O {} --tries=10 {}".format(output_file, link);
+    command = "curl -L -o models/{} {}".format(output_file, link);
     check_call(command.split());
 
 def main():

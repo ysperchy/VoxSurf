@@ -167,7 +167,12 @@ io.write('Supports generation time (s): '..math.floor(exec_time_wave_func)..'\n'
 io.write('Total lenght of supports (mm): '..math.floor(total_length)..'\n')
 io.write('Total number of anchors: '..math.floor(number_anchors)..'\n')
 io.write('Total number of feet: '..math.floor(number_feet)..'\n')
-io.write('Ratio anchors/feet: '..(number_anchors / number_feet)..'\n')
+io.write('Ratio anchors/feet: ')
+if (number_feet == 0) then
+  io.write('NA\n')
+else
+  io.write(''..(number_anchors / number_feet)..'\n')
+end
 io.write('Z rotation (degrees): '..(rotZ)..'\n')
 io.write('\n')
 io.close(stats)
